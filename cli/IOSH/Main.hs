@@ -15,9 +15,6 @@ import System.IO
 import System.Process
 import Prelude hiding (error)
 
-rawTTYBracket :: (Member TTY r) => Sem r a -> Sem r a
-rawTTYBracket m = setEcho False *> m <* setEcho True
-
 serverMessageReceiver :: (Member ByteInput r, Member TTY r, Member (State CarriedOverByteString) r) => Sem r ()
 serverMessageReceiver = runEffect $ for xInputter go
   where
@@ -29,11 +26,10 @@ ttyOutputSender :: (Member ByteOutput r, Member TTY r) => Sem r ()
 ttyOutputSender = runEffect $ reader >-> P.map Stdin >-> xOutputter
 
 iosh :: (Member ByteInput r, Member ByteOutput r, Member Race r, Member TTY r) => FilePath -> Args -> Sem r ()
-iosh path args = evalState @CarriedOverByteString Nothing $
-  rawTTYBracket $ do
-    getSize >>= outputX . Handshake path args
-    setSizeChH (outputX . Resize)
-    race_ serverMessageReceiver ttyOutputSender
+iosh path args = evalState @CarriedOverByteString Nothing $ do
+  getSize >>= outputX . Handshake path args
+  setSizeChH (outputX . Resize)
+  race_ serverMessageReceiver ttyOutputSender
 
 main :: IO ()
 main = do

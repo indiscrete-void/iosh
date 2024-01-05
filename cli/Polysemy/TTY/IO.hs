@@ -34,7 +34,6 @@ ttyToIOFinal i o e = interpretFinal @IO $ \case
   (SetSizeChH f) -> wrapHandlerS f >>= liftS . go
     where
       go g = void $ installHandler sigWINCH (Catch g) Nothing
-  (SetEcho b) -> liftS $ hSetEcho i b
   GetSize -> liftS protoSize
   Read -> liftS $ eofToNothing <$> hGetSome i 8192
   (Error str) -> liftS $ hPut e str

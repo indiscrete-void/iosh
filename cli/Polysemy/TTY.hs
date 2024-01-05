@@ -2,7 +2,6 @@ module Polysemy.TTY
   ( TTY (..),
     getSize,
     setSizeChH,
-    setEcho,
     read,
     write,
     error,
@@ -26,7 +25,6 @@ type TTY :: (Type -> Type) -> Type -> Type
 data TTY m a where
   GetSize :: TTY m Size
   SetSizeChH :: (Size -> m ()) -> TTY m ()
-  SetEcho :: Bool -> TTY m ()
   Read :: TTY m (Maybe ByteString)
   Write :: ByteString -> TTY m ()
   Error :: ByteString -> TTY m ()
