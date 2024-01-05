@@ -1,3 +1,4 @@
+import IOSH.Async
 import IOSH.Options hiding (execArgs, execPath, tunProcCmd)
 import IOSH.Protocol
 import Pipes hiding (await)
@@ -26,9 +27,11 @@ ttyOutputSender :: (Member ByteOutput r, Member TTY r) => Sem r ()
 ttyOutputSender = runEffect $ reader >-> P.map Stdin >-> xOutputter
 
 iosh :: (Member ByteInput r, Member ByteOutput r, Member Async r, Member TTY r) => FilePath -> Args -> Sem r ()
-iosh path args =
-  evalState @CarriedOverByteString Nothing $
-    getSize >>= outputX . Handshake path args >> setSizeChH (outputX . Resize) >> async ttyOutputSender >> (async serverMessageReceiver >>= void . await)
+iosh path args = evalState @CarriedOverByteString Nothing $ do
+  getSize >>= outputX . Handshake path args
+  setSizeChH (outputX . Resize)
+  async_ ttyOutputSender
+  async serverMessageReceiver >>= await_
 
 main :: IO ()
 main = do
