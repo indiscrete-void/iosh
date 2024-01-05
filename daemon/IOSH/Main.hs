@@ -28,7 +28,6 @@ iosh = runDecoder $ do
   (Handshake procPath procArgs size) <- inputX
   h <- exec @h procPath procArgs size
   result <- race (ptyOutputSender h) (clientMessageReceiver h)
-  close h
   when (isLeft result) $ wait h >>= outputX . Termination
 
 main :: IO ()

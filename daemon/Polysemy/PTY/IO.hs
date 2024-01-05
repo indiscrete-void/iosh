@@ -23,4 +23,3 @@ ptyToIO = interpret $ \case
   (Resize (pty, _) size) -> embed $ resizePty pty (ps2s size)
   (Read (pty, _)) -> embed $ threadWaitReadPty pty >> ioErrorToNothing (readPty pty)
   (Write (pty, _) str) -> embed $ threadWaitWritePty pty >> writePty pty str
-  (Close (pty, _)) -> embed $ closePty pty

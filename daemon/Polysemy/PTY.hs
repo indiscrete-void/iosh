@@ -5,7 +5,6 @@ module Polysemy.PTY
     resize,
     read,
     write,
-    close,
     reader,
     writer,
   )
@@ -28,7 +27,6 @@ data PTY h m a where
   Resize :: h -> Size -> PTY h m ()
   Read :: h -> PTY h m (Maybe ByteString)
   Write :: h -> ByteString -> PTY h m ()
-  Close :: h -> PTY h m ()
 
 makeSem ''PTY
 
