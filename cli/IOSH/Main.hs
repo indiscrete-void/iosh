@@ -1,9 +1,9 @@
 import IOSH.Options hiding (execArgs, execPath, tunProcCmd)
 import IOSH.Protocol
-import Pipes
+import Pipes hiding (await)
 import Pipes.Prelude qualified as P
 import Polysemy
-import Polysemy.Conc
+import Polysemy.Async
 import Polysemy.Fail
 import Polysemy.Serialize
 import Polysemy.State
@@ -25,11 +25,10 @@ serverMessageReceiver = runEffect $ for xInputter go
 ttyOutputSender :: (Member ByteOutput r, Member TTY r) => Sem r ()
 ttyOutputSender = runEffect $ reader >-> P.map Stdin >-> xOutputter
 
-iosh :: (Member ByteInput r, Member ByteOutput r, Member Race r, Member TTY r) => FilePath -> Args -> Sem r ()
-iosh path args = evalState @CarriedOverByteString Nothing $ do
-  getSize >>= outputX . Handshake path args
-  setSizeChH (outputX . Resize)
-  race_ serverMessageReceiver ttyOutputSender
+iosh :: (Member ByteInput r, Member ByteOutput r, Member Async r, Member TTY r) => FilePath -> Args -> Sem r ()
+iosh path args =
+  evalState @CarriedOverByteString Nothing $
+    getSize >>= outputX . Handshake path args >> setSizeChH (outputX . Resize) >> async ttyOutputSender >> (async serverMessageReceiver >>= void . await)
 
 main :: IO ()
 main = do
@@ -38,7 +37,7 @@ main = do
   mapM_ (`hSetBuffering` NoBuffering) [tunIn, tunOut, stdin, stdout]
   runFinal
     . (ttyToIOFinal stdin stdout stderr . embedToFinal @IO)
-    . (interpretRace . embedToFinal @IO)
+    . (asyncToIOFinal . embedToFinal @IO)
     . inputToIO tunOut
     . outputToIO tunIn
     . failToEmbed @IO
