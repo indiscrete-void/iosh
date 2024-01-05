@@ -31,7 +31,7 @@ iosh path args = evalState @CarriedOverByteString Nothing $ do
   getSize >>= outputX . Handshake path args
   setSizeChH (outputX . Resize)
   async_ ttyOutputSender
-  async serverMessageReceiver >>= await_
+  serverMessageReceiver
 
 main :: IO ()
 main = do
