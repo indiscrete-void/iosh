@@ -15,11 +15,11 @@ import System.IO
 clientMessageReceiver :: (Member ByteInput r, Member (PTY h) r, Member (State CarriedOverByteString) r) => h -> Sem r ()
 clientMessageReceiver h = runEffect $ for xInputter go
   where
-    go (TTYData str) = lift $ write h str
+    go (Stdin str) = lift $ write h str
     go (Resize wh) = lift $ resize h wh
 
 ptyOutputSender :: (Member ByteOutput r, Member (PTY h) r) => h -> Sem r ()
-ptyOutputSender h = runEffect $ reader h >-> P.map PTYData >-> xOutputter
+ptyOutputSender h = runEffect $ reader h >-> P.map Stdout >-> xOutputter
 
 iosh :: forall h r. (Member ByteInput r, Member ByteOutput r, Member Fail r, Member (PTY h) r, Member Race r) => Sem r ()
 iosh = runDecoder $ do

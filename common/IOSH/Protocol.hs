@@ -32,12 +32,13 @@ data Handshake where
 type ClientMessage :: Type
 data ClientMessage where
   Resize :: Size -> ClientMessage
-  TTYData :: ByteString -> ClientMessage
+  Stdin :: ByteString -> ClientMessage
   deriving stock (Generic)
 
 type ServerMessage :: Type
 data ServerMessage where
-  PTYData :: ByteString -> ServerMessage
+  Stdout :: ByteString -> ServerMessage
+  Stderr :: ByteString -> ServerMessage
   Termination :: ExitCode -> ServerMessage
   deriving stock (Generic)
 
