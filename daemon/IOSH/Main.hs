@@ -1,5 +1,3 @@
-import Control.Monad
-import Data.Either
 import IOSH.Protocol
 import Pipes hiding (embed)
 import Pipes.Prelude qualified as P
@@ -27,9 +25,8 @@ iosh :: forall h r. (Member ByteInput r, Member ByteOutput r, Member Fail r, Mem
 iosh = runDecoder $ do
   (Handshake procPath procArgs size) <- inputX
   h <- exec @h procPath procArgs size
-  result <- race (ptyOutputSender h) (clientMessageReceiver h)
-  close h
-  when (isLeft result) $ wait h >>= outputX . Termination
+  race_ (ptyOutputSender h) (clientMessageReceiver h)
+  close h >> wait h >>= outputX . Termination
 
 main :: IO ()
 main = do
