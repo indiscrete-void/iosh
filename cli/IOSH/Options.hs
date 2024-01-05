@@ -35,6 +35,7 @@ parserInfo =
     ( fullDesc
         <> progDesc "Tell daemon to execute PROCESS with ARGUMENTS via COMMAND"
         <> header "Standard IO shell client"
+        <> noIntersperse
     )
 
 execOptionsParser :: IO Options
