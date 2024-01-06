@@ -32,7 +32,6 @@ library common
         Polysemy.Transport.IO
         IOSH.Async
         IOSH.Protocol
-        IOSH.Protocol.PTY
 
     hs-source-dirs: common
     build-depends:

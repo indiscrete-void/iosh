@@ -26,11 +26,12 @@ type Size = (Int16, Int16)
 
 type Handshake :: Type
 data Handshake where
-  Handshake :: FilePath -> Args -> Handshake
+  Handshake :: FilePath -> Args -> Size -> Handshake
   deriving stock (Generic)
 
 type ClientMessage :: Type
 data ClientMessage where
+  Resize :: Size -> ClientMessage
   Stdin :: ByteString -> ClientMessage
   deriving stock (Generic)
 

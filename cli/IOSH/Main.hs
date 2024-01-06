@@ -1,6 +1,6 @@
 import IOSH.Async
 import IOSH.Options hiding (execArgs, execPath, tunProcCmd)
-import IOSH.Protocol.PTY
+import IOSH.Protocol
 import Pipes hiding (await)
 import Pipes.Prelude qualified as P
 import Polysemy
@@ -20,6 +20,7 @@ serverMessageReceiver :: (Member ByteInput r, Member TTY r, Member (State Carrie
 serverMessageReceiver = runEffect $ for xInputter go
   where
     go (Stdout str) = lift $ write str
+    go (Stderr str) = lift $ error str
     go (Termination code) = lift $ exit code
 
 ttyOutputSender :: (Member ByteOutput r, Member TTY r) => Sem r ()
