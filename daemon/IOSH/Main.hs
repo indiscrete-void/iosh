@@ -1,6 +1,6 @@
 import Control.Monad
 import Data.Either
-import IOSH.Protocol
+import IOSH.Protocol.PTY
 import Pipes hiding (embed)
 import Pipes.Prelude qualified as P
 import Polysemy
