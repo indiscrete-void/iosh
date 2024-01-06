@@ -31,7 +31,6 @@ decoder = takeState >>= maybe await pure >>= go . runGetPartial Serial.get
   where
     takeState = lift State.get <* lift (State.put @CarriedOverByteString Nothing)
     putJust = lift . State.put . Just
-    --
     go (Serial.Fail _ left) = putJust left
     go (Done a left) = putJust left >> yield a >> decoder
     go (Partial f) = await >>= go . f
