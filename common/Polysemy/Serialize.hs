@@ -16,7 +16,6 @@ import Pipes
 import Pipes.Prelude qualified as P
 import Polysemy hiding (Effect, send)
 import Polysemy.Fail
-import Polysemy.Output
 import Polysemy.State as State
 import Polysemy.Transport
 
@@ -45,4 +44,4 @@ inputX :: (Member ByteInput r, Member (State CarriedOverByteString) r, Member Fa
 inputX = P.head xInputter >>= maybe (fail "end of pipe reached") pure
 
 outputX :: (Member ByteOutput r, Serialize a) => a -> Sem r ()
-outputX a = output (encode a)
+outputX a = runEffect $ yield a >-> xOutputter
