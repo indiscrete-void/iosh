@@ -28,7 +28,7 @@ ttyOutputSender = runEffect $ reader >-> P.map Stdin >-> xOutputter
 iosh :: (Member ByteInput r, Member ByteOutput r, Member Async r, Member TTY r) => FilePath -> Args -> Sem r ()
 iosh path args = evalState @CarriedOverByteString Nothing $ do
   getSize >>= outputX . Handshake path args
-  setSizeChH (outputX . Resize)
+  setResizeHandler (outputX . Resize)
   async_ ttyOutputSender
   serverMessageReceiver
 

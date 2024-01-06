@@ -1,7 +1,7 @@
 module Polysemy.TTY
   ( TTY (..),
     getSize,
-    setSizeChH,
+    setResizeHandler,
     read,
     write,
     exit,
@@ -23,7 +23,7 @@ import Prelude hiding (read)
 type TTY :: (Type -> Type) -> Type -> Type
 data TTY m a where
   GetSize :: TTY m Size
-  SetSizeChH :: (Size -> m ()) -> TTY m ()
+  SetResizeHandler :: (Size -> m ()) -> TTY m ()
   Read :: TTY m (Maybe ByteString)
   Write :: ByteString -> TTY m ()
   Exit :: ExitCode -> TTY m ()
