@@ -29,13 +29,12 @@ wrapHandlerS f = liftM3 wrapper (bindS f) getInspectorS getInitialStateS
       where
         protoSizeS = inspect ins <$> (protoSize >>= h . (<$ s))
 
-ttyToIOFinal :: (Member (Final IO) r) => Handle -> Handle -> Handle -> InterpreterFor TTY r
-ttyToIOFinal i o e = interpretFinal @IO $ \case
+ttyToIOFinal :: (Member (Final IO) r) => Handle -> Handle -> InterpreterFor TTY r
+ttyToIOFinal i o = interpretFinal @IO $ \case
   (SetSizeChH f) -> wrapHandlerS f >>= liftS . go
     where
       go g = void $ installHandler sigWINCH (Catch g) Nothing
   GetSize -> liftS protoSize
   Read -> liftS $ eofToNothing <$> hGetSome i 8192
-  (Error str) -> liftS $ hPut e str
   (Write str) -> liftS $ hPut o str
   (Exit code) -> liftS $ exitWith code

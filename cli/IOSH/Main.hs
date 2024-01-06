@@ -14,13 +14,12 @@ import Polysemy.Transport
 import Polysemy.Transport.IO
 import System.IO
 import System.Process
-import Prelude hiding (error)
+import Prelude
 
 serverMessageReceiver :: (Member ByteInput r, Member TTY r, Member (State CarriedOverByteString) r) => Sem r ()
 serverMessageReceiver = runEffect $ for xInputter go
   where
     go (Stdout str) = lift $ write str
-    go (Stderr str) = lift $ error str
     go (Termination code) = lift $ exit code
 
 ttyOutputSender :: (Member ByteOutput r, Member TTY r) => Sem r ()
@@ -39,7 +38,7 @@ main = do
   (Just tunIn, Just tunOut, _, _) <- createProcess (shell tunProcCmd) {std_in = CreatePipe, std_out = CreatePipe}
   mapM_ (`hSetBuffering` NoBuffering) [tunIn, tunOut, stdin, stdout]
   runFinal
-    . (ttyToIOFinal stdin stdout stderr . embedToFinal @IO)
+    . (ttyToIOFinal stdin stdout . embedToFinal @IO)
     . (asyncToIOFinal . embedToFinal @IO)
     . inputToIO tunOut
     . outputToIO tunIn

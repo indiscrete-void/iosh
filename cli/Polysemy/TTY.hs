@@ -4,7 +4,6 @@ module Polysemy.TTY
     setSizeChH,
     read,
     write,
-    error,
     exit,
     reader,
     writer,
@@ -19,7 +18,7 @@ import Pipes.Prelude qualified as P
 import Polysemy
 import Polysemy.Transport
 import System.Exit
-import Prelude hiding (error, read)
+import Prelude hiding (read)
 
 type TTY :: (Type -> Type) -> Type -> Type
 data TTY m a where
@@ -27,7 +26,6 @@ data TTY m a where
   SetSizeChH :: (Size -> m ()) -> TTY m ()
   Read :: TTY m (Maybe ByteString)
   Write :: ByteString -> TTY m ()
-  Error :: ByteString -> TTY m ()
   Exit :: ExitCode -> TTY m ()
 
 makeSem ''TTY
