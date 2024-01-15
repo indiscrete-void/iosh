@@ -2,6 +2,8 @@ module Polysemy.TTY
   ( TTY (..),
     getSize,
     setResizeHandler,
+    attributeBracket,
+    setRaw,
     read,
     write,
     exit,
@@ -24,6 +26,8 @@ type TTY :: (Type -> Type) -> Type -> Type
 data TTY m a where
   GetSize :: TTY m Size
   SetResizeHandler :: (Size -> m ()) -> TTY m ()
+  AttributeBracket :: m a -> TTY m a
+  SetRaw :: TTY m ()
   Read :: TTY m (Maybe ByteString)
   Write :: ByteString -> TTY m ()
   Exit :: ExitCode -> TTY m () -- exit >> m = exit

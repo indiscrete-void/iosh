@@ -1,7 +1,7 @@
 module Polysemy.TTY.IO (ttyToIOFinal) where
 
+import Control.Exception
 import Control.Monad
-import Data.ByteString
 import IOSH.Protocol
 import Polysemy
 import Polysemy.Final
@@ -9,7 +9,8 @@ import Polysemy.TTY
 import Polysemy.Transport.IO
 import System.Console.Terminal.Size
 import System.Exit
-import System.IO
+import System.Posix hiding (fdRead, fdWrite)
+import System.Posix.IO.ByteString
 import System.Posix.Signals.Exts
 
 maybeFail :: (MonadFail m) => String -> Maybe a -> m a
@@ -29,12 +30,27 @@ wrapHandlerS f = liftM3 wrapper (bindS f) getInspectorS getInitialStateS
       where
         protoSizeS = inspect ins <$> (protoSize >>= h . (<$ s))
 
-ttyToIOFinal :: (Member (Final IO) r) => Handle -> Handle -> InterpreterFor TTY r
+wrapBracketActionS :: n a -> Sem (WithStrategy IO f n) (IO a)
+wrapBracketActionS ma = liftM2 wrapper (runS ma) getInspectorS
+  where
+    wrapper mb ins = mb >>= maybeFail "unable to inspect bracket action result" . inspect ins
+
+withRaw :: TerminalAttributes -> TerminalAttributes
+withRaw attrs = foldr (flip withoutMode) attrs [EnableEcho, IgnoreBreak, InterruptOnBreak, IgnoreParityErrors, MarkParityErrors, CheckParity, StripHighBit, MapLFtoCR, IgnoreCR, MapCRtoLF, StartStopOutput, StartStopInput, ProcessInput, ProcessOutput, KeyboardInterrupts]
+
+setTerminalAttributesImmediately :: Fd -> TerminalAttributes -> IO ()
+setTerminalAttributesImmediately fd attrs = setTerminalAttributes fd attrs Immediately
+
+ttyToIOFinal :: (Member (Final IO) r) => Fd -> Fd -> InterpreterFor TTY r
 ttyToIOFinal i o = interpretFinal @IO $ \case
   (SetResizeHandler f) -> wrapHandlerS f >>= liftS . go
     where
       go g = void $ installHandler sigWINCH (Catch g) Nothing
   GetSize -> liftS protoSize
-  Read -> liftS $ eofToNothing <$> hGetSome i 8192
-  (Write str) -> liftS $ hPut o str
+  (AttributeBracket ma) -> wrapBracketActionS ma >>= liftS . go
+    where
+      go mb = bracket (getTerminalAttributes i) (setTerminalAttributesImmediately i) (const mb)
+  SetRaw -> liftS $ getTerminalAttributes i >>= setTerminalAttributesImmediately i . withRaw
+  Read -> liftS $ eofToNothing <$> fdRead i 8192
+  (Write str) -> liftS . void $ fdWrite o str
   (Exit code) -> liftS $ exitWith code
