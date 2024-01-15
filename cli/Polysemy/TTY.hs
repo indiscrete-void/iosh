@@ -26,7 +26,7 @@ data TTY m a where
   SetResizeHandler :: (Size -> m ()) -> TTY m ()
   Read :: TTY m (Maybe ByteString)
   Write :: ByteString -> TTY m ()
-  Exit :: ExitCode -> TTY m ()
+  Exit :: ExitCode -> TTY m () -- exit >> m = exit
 
 makeSem ''TTY
 
