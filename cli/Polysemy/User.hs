@@ -1,5 +1,6 @@
 module Polysemy.User
   ( User (..),
+    isTerminal,
     read,
     write,
     exit,
@@ -19,6 +20,7 @@ import Prelude hiding (read)
 
 type User :: k -> Type -> Type
 data User m a where
+  IsTerminal :: User m Bool
   Read :: User m (Maybe ByteString)
   Write :: ByteString -> User m ()
   Exit :: ExitCode -> User m () -- exit >> m = exit
