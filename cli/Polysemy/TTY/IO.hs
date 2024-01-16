@@ -6,11 +6,8 @@ import IOSH.Protocol
 import Polysemy
 import Polysemy.Final
 import Polysemy.TTY
-import Polysemy.Transport.IO
 import System.Console.Terminal.Size
-import System.Exit
 import System.Posix hiding (fdRead, fdWrite)
-import System.Posix.IO.ByteString
 import System.Posix.Signals.Exts
 
 maybeFail :: (MonadFail m) => String -> Maybe a -> m a
@@ -39,16 +36,13 @@ withRaw attrs = foldr (flip withoutMode) attrs [EnableEcho, IgnoreBreak, Interru
 setTerminalAttributesImmediately :: Fd -> TerminalAttributes -> IO ()
 setTerminalAttributesImmediately fd attrs = setTerminalAttributes fd attrs Immediately
 
-ttyToIOFinal :: (Member (Final IO) r) => Fd -> Fd -> InterpreterFor TTY r
-ttyToIOFinal i o = interpretFinal @IO $ \case
+ttyToIOFinal :: (Member (Final IO) r) => Fd -> InterpreterFor TTY r
+ttyToIOFinal term = interpretFinal @IO $ \case
   (SetResizeHandler f) -> wrapHandlerS f >>= liftS . go
     where
       go f' = void $ installHandler sigWINCH (Catch f') Nothing
   GetSize -> liftS protoSize
   (AttributeBracket m) -> wrapBracketActionS m >>= liftS . go
     where
-      go m' = bracket (getTerminalAttributes i) (setTerminalAttributesImmediately i) (const m')
-  SetRaw -> liftS $ getTerminalAttributes i >>= setTerminalAttributesImmediately i . withRaw
-  Read -> liftS $ eofToNothing <$> fdRead i 8192
-  (Write str) -> liftS . void $ fdWrite o str
-  (Exit code) -> liftS $ exitWith code
+      go m' = bracket (getTerminalAttributes term) (setTerminalAttributesImmediately term) (const m')
+  SetRaw -> liftS $ getTerminalAttributes term >>= setTerminalAttributesImmediately term . withRaw

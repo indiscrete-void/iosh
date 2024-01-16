@@ -47,6 +47,8 @@ executable iosh
     main-is: IOSH/Main.hs
     hs-source-dirs: cli
     other-modules:
+        Polysemy.User
+        Polysemy.User.IO
         Polysemy.TTY
         Polysemy.TTY.IO
         IOSH.Options
