@@ -9,11 +9,8 @@ import Polysemy.Fail
 import Polysemy.Serialize
 import Polysemy.State
 import Polysemy.TTY
-import Polysemy.TTY.IO
 import Polysemy.Transport
-import Polysemy.Transport.IO
 import Polysemy.User
-import Polysemy.User.IO
 import System.IO
 import System.Posix.IO
 import System.Process

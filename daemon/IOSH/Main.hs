@@ -7,11 +7,9 @@ import Polysemy
 import Polysemy.Conc
 import Polysemy.Fail
 import Polysemy.PTY hiding (Resize)
-import Polysemy.PTY.IO
 import Polysemy.Serialize
 import Polysemy.State
 import Polysemy.Transport
-import Polysemy.Transport.IO
 import System.IO
 
 clientMessageReceiver :: (Member ByteInput r, Member (PTY h) r, Member (State CarriedOverByteString) r) => h -> Sem r ()

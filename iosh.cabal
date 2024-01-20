@@ -29,7 +29,6 @@ library common
     exposed-modules:
         Polysemy.Serialize
         Polysemy.Transport
-        Polysemy.Transport.IO
         IOSH.Async
         IOSH.Protocol
 
@@ -48,9 +47,7 @@ executable iosh
     hs-source-dirs: cli
     other-modules:
         Polysemy.User
-        Polysemy.User.IO
         Polysemy.TTY
-        Polysemy.TTY.IO
         IOSH.Options
 
     build-depends:
@@ -70,7 +67,6 @@ executable ioshd
     hs-source-dirs: daemon
     other-modules:
         Polysemy.PTY
-        Polysemy.PTY.IO
 
     build-depends:
         base ^>=4.16.4.0,

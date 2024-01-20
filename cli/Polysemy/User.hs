@@ -6,16 +6,18 @@ module Polysemy.User
     exit,
     reader,
     writer,
+    userToIO,
   )
 where
 
 import Data.ByteString
 import Data.Kind
-import Pipes
+import Pipes hiding (embed)
 import Pipes.Prelude qualified as P
 import Polysemy
 import Polysemy.Transport
 import System.Exit
+import System.Posix.ByteString
 import Prelude hiding (read)
 
 type User :: k -> Type -> Type
@@ -32,3 +34,10 @@ reader = P.repeatM read >-> justYielder
 
 writer :: (Member User r) => Consumer ByteString (Sem r) ()
 writer = P.mapM_ write
+
+userToIO :: (Member (Embed IO) r) => Fd -> Fd -> InterpreterFor User r
+userToIO i o = interpret $ \case
+  IsTerminal -> embed $ queryTerminal i
+  Read -> embed $ eofToNothing <$> fdRead i 8192
+  (Write str) -> embed . void $ fdWrite o str
+  (Exit code) -> embed $ exitWith code
