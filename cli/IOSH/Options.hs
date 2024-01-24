@@ -8,22 +8,17 @@ import Data.Kind
 import Options.Applicative
 
 type Options :: Type
-data Options = Options String Bool FilePath [String]
+data Options = Options Bool String FilePath [String]
 
 optsInfo :: Parser Options
 optsInfo =
   Options
-    <$> strOption
-      ( long "tunnel"
+    <$> switch
+      ( long "tty"
           <> short 't'
-          <> metavar "COMMAND"
-          <> help "Command acting as tunnel to ioshd"
-      )
-    <*> switch
-      ( long "pty"
-          <> short 'p'
           <> help "Whether to run PTY-backed session"
       )
+    <*> argument str (metavar "COMMAND")
     <*> argument str (metavar "PATH")
     <*> many
       ( argument str (metavar "ARGUMENTS")

@@ -50,7 +50,7 @@ iosh False = procIOSH
 
 main :: IO ()
 main = do
-  (Options tunProcCmd interactive execPath execArgs) <- execOptionsParser
+  (Options interactive tunProcCmd execPath execArgs) <- execOptionsParser
   (Just tunIn, Just tunOut, _, _) <- createProcess (shell tunProcCmd) {std_in = CreatePipe, std_out = CreatePipe}
   mapM_ (`hSetBuffering` NoBuffering) [tunIn, tunOut, stdin, stdout]
   runFinal
