@@ -11,8 +11,7 @@ module Polysemy.User
 where
 
 import Data.ByteString
-import Data.Kind
-import Pipes hiding (embed)
+import Pipes hiding (Effect, embed)
 import Pipes.Prelude qualified as P
 import Polysemy
 import Polysemy.Transport
@@ -20,7 +19,7 @@ import System.Exit
 import System.Posix.ByteString
 import Prelude hiding (read)
 
-type User :: k -> Type -> Type
+type User :: Effect
 data User m a where
   IsTerminal :: User m Bool
   Read :: User m (Maybe ByteString)

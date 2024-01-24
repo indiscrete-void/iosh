@@ -10,7 +10,6 @@ where
 
 import Control.Exception
 import Control.Monad
-import Data.Kind
 import IOSH.Protocol
 import Polysemy
 import Polysemy.Final
@@ -19,7 +18,7 @@ import System.Posix.ByteString
 import System.Posix.Signals.Exts
 import Prelude hiding (read)
 
-type TTY :: (Type -> Type) -> Type -> Type
+type TTY :: Effect
 data TTY m a where
   GetSize :: TTY m Size
   SetResizeHandler :: (Size -> m ()) -> TTY m ()

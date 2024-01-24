@@ -17,7 +17,7 @@ import Data.Bifunctor
 import Data.ByteString (ByteString)
 import Data.Kind
 import IOSH.Protocol hiding (Resize)
-import Pipes hiding (embed)
+import Pipes hiding (Effect, embed)
 import Pipes.Prelude qualified as P
 import Polysemy
 import Polysemy.Transport
@@ -26,7 +26,7 @@ import System.Posix.Pty
 import System.Process
 import Prelude hiding (read)
 
-type PTY :: Type -> k -> Type -> Type
+type PTY :: Type -> Effect
 data PTY h m a where
   Exec :: FilePath -> Args -> Size -> PTY h m h
   Wait :: h -> PTY h m ExitCode
