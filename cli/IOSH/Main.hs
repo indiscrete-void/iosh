@@ -44,7 +44,7 @@ procIOSH path args = do
   serverMessageReceiver
 
 iosh :: (Member ByteInput r, Member ByteOutput r, Member Async r, Member TTY r, Member User r) => FilePath -> Args -> Sem r ()
-iosh path args = evalState @CarriedOverByteString Nothing $ isTerminal >>= bool (ptyIOSH path args) (procIOSH path args)
+iosh path args = runDecoder $ isTerminal >>= bool (ptyIOSH path args) (procIOSH path args)
 
 main :: IO ()
 main = do
