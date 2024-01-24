@@ -1,6 +1,6 @@
 import Data.Bool
 import IOSH.Async
-import IOSH.Options hiding (execArgs, execPath, interactive, tunProcCmd)
+import IOSH.Options
 import IOSH.Protocol
 import Pipes hiding (await)
 import Pipes.Prelude qualified as P

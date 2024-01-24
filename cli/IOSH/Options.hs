@@ -8,12 +8,7 @@ import Data.Kind
 import Options.Applicative
 
 type Options :: Type
-data Options = Options
-  { tunProcCmd :: String,
-    interactive :: Bool,
-    execPath :: FilePath,
-    execArgs :: [String]
-  }
+data Options = Options String Bool FilePath [String]
 
 optsInfo :: Parser Options
 optsInfo =
