@@ -15,7 +15,6 @@ where
 import Control.Monad
 import Data.ByteString (ByteString, hGetSome, hPut)
 import Data.Kind
-import IOSH.Maybe
 import IOSH.Protocol hiding (Resize)
 import Pipes hiding (Effect, embed)
 import Pipes.Prelude qualified as P
@@ -56,17 +55,12 @@ pipedProc path args =
       std_err = CreatePipe
     }
 
-unMaybeHandles :: (MonadFail m) => (Maybe Handle, Maybe Handle, Maybe Handle, ProcessHandle) -> m (Handle, Handle, Handle, ProcessHandle)
-unMaybeHandles (i, o, e, h) = do
-  i' <- maybeFail "unable to get stdin" i
-  o' <- maybeFail "unable to get stderr" o
-  e' <- maybeFail "unable to get stdout" e
-  pure (i', o', e', h)
-
 scopedProcToIO :: (Member (Embed IO) r) => InterpreterFor (Scoped ProcessParams Process) r
 scopedProcToIO = interpretScoped (\params f -> open params >>= \resource -> f resource <* close resource) procToIO
   where
-    open (ProcessParams path args) = embed $ createProcess (pipedProc path args) >>= unMaybeHandles
+    open (ProcessParams path args) = embed $ do
+      (Just i, Just o, Just e, ph) <- createProcess (pipedProc path args)
+      pure (i, o, e, ph)
     procToIO :: (Member (Embed IO) r) => (Handle, Handle, Handle, ProcessHandle) -> Process m x -> Sem r x
     procToIO (_, _, _, ph) Wait = embed $ waitForProcess ph
     procToIO (_, o, _, _) Read = embed $ eofToNothing <$> hGetSome o 8192
