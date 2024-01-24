@@ -16,7 +16,7 @@ optsInfo =
     <$> switch
       ( long "tty"
           <> short 't'
-          <> help "Whether to run PTY-backed session"
+          <> help "Allocate a pseudo-TTY"
       )
     <*> argument str (metavar "COMMAND")
     <*> argument str (metavar "PATH")
