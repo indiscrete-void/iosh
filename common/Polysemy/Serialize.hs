@@ -1,5 +1,5 @@
 module Polysemy.Serialize
-  ( CarriedOverByteString,
+  ( Decoder,
     runDecoder,
     inputX,
     outputX,
@@ -9,38 +9,37 @@ module Polysemy.Serialize
 where
 
 import Data.ByteString (ByteString)
-import Data.Kind
 import Data.Serialize
 import Data.Serialize qualified as Serial
 import Pipes
 import Pipes.Prelude qualified as P
-import Polysemy hiding (Effect, send)
+import Polysemy hiding (send)
 import Polysemy.Fail
 import Polysemy.State as State
 import Polysemy.Transport
 
-type CarriedOverByteString :: Type
-type CarriedOverByteString = Maybe ByteString
+type Decoder :: Polysemy.Effect
+type Decoder = State (Maybe ByteString)
 
-runDecoder :: Sem (State CarriedOverByteString : r) a -> Sem r a
+runDecoder :: Sem (Decoder : r) a -> Sem r a
 runDecoder = evalState Nothing
 
-decoder :: (Member (State CarriedOverByteString) r, Serialize a) => Pipe ByteString a (Sem r) ()
+decoder :: (Member Decoder r, Serialize a) => Pipe ByteString a (Sem r) ()
 decoder = takeState >>= maybe await pure >>= go . runGetPartial Serial.get
   where
-    takeState = lift State.get <* lift (State.put @CarriedOverByteString Nothing)
+    takeState = lift State.get <* lift (State.put @(Maybe ByteString) Nothing)
     putJust = lift . State.put . Just
     go (Serial.Fail _ left) = putJust left
     go (Done a left) = putJust left >> yield a >> decoder
     go (Partial f) = await >>= go . f
 
-xInputter :: (Member ByteInput r, Member (State CarriedOverByteString) r, Serialize a) => Producer a (Sem r) ()
+xInputter :: (Member ByteInput r, Member Decoder r, Serialize a) => Producer a (Sem r) ()
 xInputter = inputter >-> decoder
 
 xOutputter :: (Member ByteOutput r, Serialize a) => Consumer a (Sem r) ()
 xOutputter = P.map encode >-> outputter
 
-inputX :: (Member ByteInput r, Member (State CarriedOverByteString) r, Member Fail r, Serialize a) => Sem r a
+inputX :: (Member ByteInput r, Member Decoder r, Member Fail r, Serialize a) => Sem r a
 inputX = P.head xInputter >>= maybe (fail "end of pipe reached") pure
 
 outputX :: (Member ByteOutput r, Serialize a) => a -> Sem r ()

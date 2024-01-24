@@ -8,7 +8,6 @@ import Polysemy
 import Polysemy.Async
 import Polysemy.Fail
 import Polysemy.Serialize
-import Polysemy.State
 import Polysemy.TTY
 import Polysemy.Transport
 import Polysemy.User
@@ -20,7 +19,7 @@ import Prelude hiding (init)
 rawBracket :: (Member TTY r) => Sem r a -> Sem r a
 rawBracket m = attributeBracket $ setRaw >> m
 
-serverMessageReceiver :: (Member ByteInput r, Member (State CarriedOverByteString) r, Member User r) => Sem r ()
+serverMessageReceiver :: (Member ByteInput r, Member Decoder r, Member User r) => Sem r ()
 serverMessageReceiver = runEffect $ for xInputter go
   where
     go (Output str) = lift $ write str
@@ -30,20 +29,20 @@ serverMessageReceiver = runEffect $ for xInputter go
 ttyOutputSender :: (Member ByteOutput r, Member User r) => Sem r ()
 ttyOutputSender = runEffect $ reader >-> P.map Input >-> xOutputter
 
-ptyIOSH :: (Member ByteInput r, Member ByteOutput r, Member (State CarriedOverByteString) r, Member TTY r, Member Async r, Member User r) => FilePath -> Args -> Sem r ()
+ptyIOSH :: (Member ByteInput r, Member ByteOutput r, Member Decoder r, Member TTY r, Member Async r, Member User r) => FilePath -> Args -> Sem r ()
 ptyIOSH path args = rawBracket $ do
   getSize >>= outputX . Handshake path args . Just
   setResizeHandler (outputX . Resize)
   async_ ttyOutputSender
   serverMessageReceiver
 
-procIOSH :: (Member ByteInput r, Member ByteOutput r, Member (State CarriedOverByteString) r, Member Async r, Member User r) => FilePath -> Args -> Sem r ()
+procIOSH :: (Member ByteInput r, Member ByteOutput r, Member Decoder r, Member Async r, Member User r) => FilePath -> Args -> Sem r ()
 procIOSH path args = do
   outputX $ Handshake path args Nothing
   async_ ttyOutputSender
   serverMessageReceiver
 
-iosh :: (Member ByteInput r, Member ByteOutput r, Member Async r, Member TTY r, Member User r, Member (State CarriedOverByteString) r) => Bool -> FilePath -> Args -> Sem r ()
+iosh :: (Member ByteInput r, Member ByteOutput r, Member Async r, Member TTY r, Member User r, Member Decoder r) => Bool -> FilePath -> Args -> Sem r ()
 iosh True = ptyIOSH
 iosh False = procIOSH
 

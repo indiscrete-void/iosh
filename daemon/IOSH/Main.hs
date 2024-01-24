@@ -12,11 +12,10 @@ import Polysemy.Process (Process, ProcessParams (..), scopedProcToIO)
 import Polysemy.Process qualified as Proc
 import Polysemy.Scoped
 import Polysemy.Serialize
-import Polysemy.State
 import Polysemy.Transport
 import System.IO
 
-procClientMessageReceiver :: (Member ByteInput r, Member Process r, Member (State CarriedOverByteString) r, Member Fail r) => Sem r ()
+procClientMessageReceiver :: (Member ByteInput r, Member Process r, Member Decoder r, Member Fail r) => Sem r ()
 procClientMessageReceiver = runEffect $ for xInputter go
   where
     go (Input str) = lift $ Proc.write str
@@ -28,13 +27,13 @@ procOutputSender = runEffect $ Proc.reader >-> P.map Output >-> xOutputter
 procErrorSender :: (Member ByteOutput r, Member Process r) => Sem r ()
 procErrorSender = runEffect $ Proc.errReader >-> P.map Error >-> xOutputter
 
-procIOSH :: (Member ByteInput r, Member ByteOutput r, Member Race r, Member (Scoped ProcessParams Process) r, Member (State CarriedOverByteString) r, Member Fail r) => FilePath -> Args -> Sem r ()
+procIOSH :: (Member ByteInput r, Member ByteOutput r, Member Race r, Member (Scoped ProcessParams Process) r, Member Decoder r, Member Fail r) => FilePath -> Args -> Sem r ()
 procIOSH procPath procArgs =
   Proc.exec (ProcessParams procPath procArgs) $ do
     result <- race (race procOutputSender procErrorSender) procClientMessageReceiver
     when (isLeft result) $ Proc.wait >>= outputX . Termination
 
-ptyClientMessageReceiver :: (Member ByteInput r, Member PTY r, Member (State CarriedOverByteString) r) => Sem r ()
+ptyClientMessageReceiver :: (Member ByteInput r, Member PTY r, Member Decoder r) => Sem r ()
 ptyClientMessageReceiver = runEffect $ for xInputter go
   where
     go (Input str) = lift $ PTY.write str
@@ -43,14 +42,14 @@ ptyClientMessageReceiver = runEffect $ for xInputter go
 ptyOutputSender :: (Member ByteOutput r, Member PTY r) => Sem r ()
 ptyOutputSender = runEffect $ PTY.reader >-> P.map Output >-> xOutputter
 
-ptyIOSH :: (Member ByteInput r, Member ByteOutput r, Member Race r, Member (Scoped PTYParams PTY) r, Member (State CarriedOverByteString) r) => FilePath -> Args -> Size -> Sem r ()
+ptyIOSH :: (Member ByteInput r, Member ByteOutput r, Member Race r, Member (Scoped PTYParams PTY) r, Member Decoder r) => FilePath -> Args -> Size -> Sem r ()
 ptyIOSH procPath procArgs size =
   PTY.exec (PTYParams procPath procArgs size) $ do
     result <- race ptyOutputSender ptyClientMessageReceiver
     when (isLeft result) $ PTY.wait >>= outputX . Termination
 
-iosh :: (Member ByteInput r, Member ByteOutput r, Member Fail r, Member Race r, Member (Scoped PTYParams PTY) r, Member (Scoped ProcessParams Process) r) => Sem r ()
-iosh = runDecoder $ do
+iosh :: (Member ByteInput r, Member ByteOutput r, Member Fail r, Member Race r, Member (Scoped PTYParams PTY) r, Member (Scoped ProcessParams Process) r, Member Decoder r) => Sem r ()
+iosh = do
   (Handshake procPath procArgs size) <- inputX
   maybe (procIOSH procPath procArgs) (ptyIOSH procPath procArgs) size
 
@@ -64,4 +63,5 @@ main = do
     . inputToIO stdin
     . outputToIO stdout
     . failToEmbed @IO
+    . runDecoder
     $ iosh
