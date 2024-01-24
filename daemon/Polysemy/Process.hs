@@ -72,8 +72,8 @@ scopedProcToIO = interpretScoped (\params f -> open params >>= \resource -> f re
   where
     open (ProcessParams path args) = embed $ createProcess (pipedProc path args) >>= unMaybeStreams
     procToIO :: (Member (Embed IO) r) => (Handle, Handle, Handle, ProcessHandle) -> Process m x -> Sem r x
-    procToIO (_, _, _, h) Wait = embed $ waitForProcess h
+    procToIO (_, _, _, ph) Wait = embed $ waitForProcess ph
     procToIO (_, o, _, _) Read = embed $ eofToNothing <$> hGetSome o 8192
     procToIO (_, _, e, _) ReadErr = embed $ eofToNothing <$> hGetSome e 8192
     procToIO (i, _, _, _) (Write str) = embed $ hPut i str
-    close (i, o, e, h) = embed $ hClose i >> hClose o >> hClose e >> terminateProcess h
+    close (i, o, e, ph) = embed $ hClose i >> hClose o >> hClose e >> terminateProcess ph

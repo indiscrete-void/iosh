@@ -56,7 +56,7 @@ scopedPTYToIO = interpretScoped (\params f -> open params >>= \resource -> f res
   where
     open (PTYParams path args size) = embed $ spawnWithPty Nothing True path args (ps2s size)
     ptyToIO :: (Member (Embed IO) r) => (Pty, ProcessHandle) -> PTY m x -> Sem r x
-    ptyToIO (_, h) Wait = embed $ waitForProcess h
+    ptyToIO (_, ph) Wait = embed $ waitForProcess ph
     ptyToIO (pty, _) (Resize size) = embed $ resizePty pty (ps2s size)
     ptyToIO (pty, _) Read = embed $ threadWaitReadPty pty >> ioErrorToNothing (readPty pty)
     ptyToIO (pty, _) (Write str) = embed $ threadWaitWritePty pty >> writePty pty str
