@@ -22,11 +22,11 @@ rawBracket m = attributeBracket $ setRaw >> m
 serverMessageReceiver :: (Member ByteInput r, Member (State CarriedOverByteString) r, Member User r) => Sem r ()
 serverMessageReceiver = runEffect $ for xInputter go
   where
-    go (Stdout str) = lift $ write str
+    go (Output str) = lift $ write str
     go (Termination code) = lift $ exit code
 
 ttyOutputSender :: (Member ByteOutput r, Member User r) => Sem r ()
-ttyOutputSender = runEffect $ reader >-> P.map Stdin >-> xOutputter
+ttyOutputSender = runEffect $ reader >-> P.map Input >-> xOutputter
 
 iosh :: (Member ByteInput r, Member ByteOutput r, Member Async r, Member TTY r, Member User r) => FilePath -> Args -> Sem r ()
 iosh path args = evalState @CarriedOverByteString Nothing . rawBracket $ do
