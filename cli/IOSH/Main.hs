@@ -1,6 +1,6 @@
 import Data.Bool
 import IOSH.Async
-import IOSH.Options hiding (execArgs, execPath, tunProcCmd)
+import IOSH.Options hiding (execArgs, execPath, interactive, tunProcCmd)
 import IOSH.Protocol
 import Pipes hiding (await)
 import Pipes.Prelude qualified as P
@@ -43,12 +43,13 @@ procIOSH path args = do
   async_ ttyOutputSender
   serverMessageReceiver
 
-iosh :: (Member ByteInput r, Member ByteOutput r, Member Async r, Member TTY r, Member User r) => FilePath -> Args -> Sem r ()
-iosh path args = runDecoder $ isTerminal >>= bool (ptyIOSH path args) (procIOSH path args)
+iosh :: (Member ByteInput r, Member ByteOutput r, Member Async r, Member TTY r, Member User r, Member (State CarriedOverByteString) r) => Bool -> FilePath -> Args -> Sem r ()
+iosh True = ptyIOSH
+iosh False = procIOSH
 
 main :: IO ()
 main = do
-  (Options tunProcCmd execPath execArgs) <- execOptionsParser
+  (Options tunProcCmd interactive execPath execArgs) <- execOptionsParser
   (Just tunIn, Just tunOut, _, _) <- createProcess (shell tunProcCmd) {std_in = CreatePipe, std_out = CreatePipe}
   mapM_ (`hSetBuffering` NoBuffering) [tunIn, tunOut, stdin, stdout]
   runFinal
@@ -58,4 +59,5 @@ main = do
     . inputToIO tunOut
     . outputToIO tunIn
     . failToEmbed @IO
-    $ iosh execPath execArgs
+    . runDecoder
+    $ iosh interactive execPath execArgs

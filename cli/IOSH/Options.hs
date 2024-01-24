@@ -10,6 +10,7 @@ import Options.Applicative
 type Options :: Type
 data Options = Options
   { tunProcCmd :: String,
+    interactive :: Bool,
     execPath :: FilePath,
     execArgs :: [String]
   }
@@ -22,6 +23,11 @@ optsInfo =
           <> short 't'
           <> metavar "COMMAND"
           <> help "Command acting as tunnel to ioshd"
+      )
+    <*> switch
+      ( long "interactive"
+          <> short 'i'
+          <> help "Whether to run PTY-backed session"
       )
     <*> argument str (metavar "PATH")
     <*> many

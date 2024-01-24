@@ -1,6 +1,5 @@
 module Polysemy.User
   ( User (..),
-    isTerminal,
     read,
     write,
     writeErr,
@@ -23,7 +22,6 @@ import Prelude hiding (read)
 
 type User :: Effect
 data User m a where
-  IsTerminal :: User m Bool
   Read :: User m (Maybe ByteString)
   Write :: ByteString -> User m ()
   WriteErr :: ByteString -> User m ()
@@ -42,7 +40,6 @@ errWriter = P.mapM_ writeErr
 
 userToIO :: (Member (Embed IO) r) => Fd -> Fd -> Fd -> InterpreterFor User r
 userToIO i o e = interpret $ \case
-  IsTerminal -> embed $ queryTerminal i
   Read -> embed $ eofToNothing <$> fdRead i 8192
   (Write str) -> embed . void $ fdWrite o str
   (WriteErr str) -> embed . void $ fdWrite e str
