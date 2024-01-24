@@ -28,8 +28,8 @@ procErrorSender :: (Member ByteOutput r, Member Process r) => Sem r ()
 procErrorSender = runEffect $ Proc.errReader >-> P.map Error >-> xOutputter
 
 procIOSH :: (Member ByteInput r, Member ByteOutput r, Member Race r, Member (Scoped ProcessParams Process) r, Member Decoder r, Member Fail r) => FilePath -> Args -> Sem r ()
-procIOSH procPath procArgs =
-  Proc.exec (ProcessParams procPath procArgs) $ do
+procIOSH path args =
+  Proc.exec (ProcessParams path args) $ do
     result <- race (race procOutputSender procErrorSender) procClientMessageReceiver
     when (isLeft result) $ Proc.wait >>= outputX . Termination
 
@@ -43,15 +43,15 @@ ptyOutputSender :: (Member ByteOutput r, Member PTY r) => Sem r ()
 ptyOutputSender = runEffect $ PTY.reader >-> P.map Output >-> xOutputter
 
 ptyIOSH :: (Member ByteInput r, Member ByteOutput r, Member Race r, Member (Scoped PTYParams PTY) r, Member Decoder r) => FilePath -> Args -> Size -> Sem r ()
-ptyIOSH procPath procArgs size =
-  PTY.exec (PTYParams procPath procArgs size) $ do
+ptyIOSH path args size =
+  PTY.exec (PTYParams path args size) $ do
     result <- race ptyOutputSender ptyClientMessageReceiver
     when (isLeft result) $ PTY.wait >>= outputX . Termination
 
 iosh :: (Member ByteInput r, Member ByteOutput r, Member Fail r, Member Race r, Member (Scoped PTYParams PTY) r, Member (Scoped ProcessParams Process) r, Member Decoder r) => Sem r ()
 iosh = do
-  (Handshake procPath procArgs size) <- inputX
-  maybe (procIOSH procPath procArgs) (ptyIOSH procPath procArgs) size
+  (Handshake path args size) <- inputX
+  maybe (procIOSH path args) (ptyIOSH path args) size
 
 main :: IO ()
 main = do
