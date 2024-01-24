@@ -1,5 +1,4 @@
 import Data.Bool
-import IOSH.Async
 import IOSH.Options
 import IOSH.Protocol
 import Pipes hiding (await)
@@ -15,6 +14,9 @@ import System.IO
 import System.Posix.IO
 import System.Process
 import Prelude hiding (init)
+
+async_ :: (Member Async r) => Sem r a -> Sem r ()
+async_ = void . async
 
 rawBracket :: (Member TTY r) => Sem r a -> Sem r a
 rawBracket m = attributeBracket $ setRaw >> m
