@@ -20,8 +20,8 @@ optsInfo =
           <> help "Command acting as tunnel to ioshd"
       )
     <*> switch
-      ( long "interactive"
-          <> short 'i'
+      ( long "pty"
+          <> short 'p'
           <> help "Whether to run PTY-backed session"
       )
     <*> argument str (metavar "PATH")
