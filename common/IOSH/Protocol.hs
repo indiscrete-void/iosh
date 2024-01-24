@@ -38,6 +38,7 @@ data ClientMessage where
 type ServerMessage :: Type
 data ServerMessage where
   Output :: ByteString -> ServerMessage
+  Error :: ByteString -> ServerMessage
   Termination :: ExitCode -> ServerMessage
   deriving stock (Generic)
 

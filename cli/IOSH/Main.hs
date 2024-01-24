@@ -23,6 +23,7 @@ serverMessageReceiver :: (Member ByteInput r, Member (State CarriedOverByteStrin
 serverMessageReceiver = runEffect $ for xInputter go
   where
     go (Output str) = lift $ write str
+    go (Error str) = lift $ writeErr str
     go (Termination code) = lift $ exit code
 
 ttyOutputSender :: (Member ByteOutput r, Member User r) => Sem r ()
@@ -43,7 +44,7 @@ main = do
   runFinal
     . (ttyToIOFinal stdInput . embedToFinal @IO)
     . (asyncToIOFinal . embedToFinal @IO)
-    . userToIO stdInput stdOutput
+    . userToIO stdInput stdOutput stdError
     . inputToIO tunOut
     . outputToIO tunIn
     . failToEmbed @IO

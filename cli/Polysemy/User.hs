@@ -3,9 +3,11 @@ module Polysemy.User
     isTerminal,
     read,
     write,
+    writeErr,
     exit,
     reader,
     writer,
+    errWriter,
     userToIO,
   )
 where
@@ -24,6 +26,7 @@ data User m a where
   IsTerminal :: User m Bool
   Read :: User m (Maybe ByteString)
   Write :: ByteString -> User m ()
+  WriteErr :: ByteString -> User m ()
   Exit :: ExitCode -> User m () -- exit >> m = exit
 
 makeSem ''User
@@ -34,9 +37,13 @@ reader = P.repeatM read >-> justYielder
 writer :: (Member User r) => Consumer ByteString (Sem r) ()
 writer = P.mapM_ write
 
-userToIO :: (Member (Embed IO) r) => Fd -> Fd -> InterpreterFor User r
-userToIO i o = interpret $ \case
+errWriter :: (Member User r) => Consumer ByteString (Sem r) ()
+errWriter = P.mapM_ writeErr
+
+userToIO :: (Member (Embed IO) r) => Fd -> Fd -> Fd -> InterpreterFor User r
+userToIO i o e = interpret $ \case
   IsTerminal -> embed $ queryTerminal i
   Read -> embed $ eofToNothing <$> fdRead i 8192
   (Write str) -> embed . void $ fdWrite o str
+  (WriteErr str) -> embed . void $ fdWrite e str
   (Exit code) -> embed $ exitWith code
