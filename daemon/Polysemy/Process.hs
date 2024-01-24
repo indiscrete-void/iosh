@@ -56,8 +56,8 @@ pipedProc path args =
       std_err = CreatePipe
     }
 
-unMaybeStreams :: (MonadFail m) => (Maybe Handle, Maybe Handle, Maybe Handle, ProcessHandle) -> m (Handle, Handle, Handle, ProcessHandle)
-unMaybeStreams (i, o, e, h) = do
+unMaybeHandles :: (MonadFail m) => (Maybe Handle, Maybe Handle, Maybe Handle, ProcessHandle) -> m (Handle, Handle, Handle, ProcessHandle)
+unMaybeHandles (i, o, e, h) = do
   i' <- maybeFail "unable to get stdin" i
   o' <- maybeFail "unable to get stderr" o
   e' <- maybeFail "unable to get stdout" e
@@ -66,7 +66,7 @@ unMaybeStreams (i, o, e, h) = do
 scopedProcToIO :: (Member (Embed IO) r) => InterpreterFor (Scoped ProcessParams Process) r
 scopedProcToIO = interpretScoped (\params f -> open params >>= \resource -> f resource <* close resource) procToIO
   where
-    open (ProcessParams path args) = embed $ createProcess (pipedProc path args) >>= unMaybeStreams
+    open (ProcessParams path args) = embed $ createProcess (pipedProc path args) >>= unMaybeHandles
     procToIO :: (Member (Embed IO) r) => (Handle, Handle, Handle, ProcessHandle) -> Process m x -> Sem r x
     procToIO (_, _, _, ph) Wait = embed $ waitForProcess ph
     procToIO (_, o, _, _) Read = embed $ eofToNothing <$> hGetSome o 8192
