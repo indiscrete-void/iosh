@@ -59,7 +59,6 @@ executable iosh
         unix ^>=2.8.5.0,
         terminal-size ^>=0.3.4,
         optparse-applicative ^>=0.18.1.0,
-        async ^>=2.2.5,
 
 executable ioshd
     import: default
