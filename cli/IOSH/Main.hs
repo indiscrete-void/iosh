@@ -1,3 +1,4 @@
+import Data.Bool
 import IOSH.Async
 import IOSH.Options hiding (execArgs, execPath, tunProcCmd)
 import IOSH.Protocol
@@ -14,7 +15,7 @@ import Polysemy.User
 import System.IO
 import System.Posix.IO
 import System.Process
-import Prelude
+import Prelude hiding (init)
 
 rawBracket :: (Member TTY r) => Sem r a -> Sem r a
 rawBracket m = attributeBracket $ setRaw >> m
@@ -29,12 +30,21 @@ serverMessageReceiver = runEffect $ for xInputter go
 ttyOutputSender :: (Member ByteOutput r, Member User r) => Sem r ()
 ttyOutputSender = runEffect $ reader >-> P.map Input >-> xOutputter
 
-iosh :: (Member ByteInput r, Member ByteOutput r, Member Async r, Member TTY r, Member User r) => FilePath -> Args -> Sem r ()
-iosh path args = evalState @CarriedOverByteString Nothing . rawBracket $ do
-  getSize >>= outputX . Handshake path args
+ptyIOSH :: (Member ByteInput r, Member ByteOutput r, Member (State CarriedOverByteString) r, Member TTY r, Member Async r, Member User r) => FilePath -> Args -> Sem r ()
+ptyIOSH path args = rawBracket $ do
+  getSize >>= outputX . Handshake path args . Just
   setResizeHandler (outputX . Resize)
   async_ ttyOutputSender
   serverMessageReceiver
+
+procIOSH :: (Member ByteInput r, Member ByteOutput r, Member (State CarriedOverByteString) r, Member Async r, Member User r) => FilePath -> Args -> Sem r ()
+procIOSH path args = do
+  outputX $ Handshake path args Nothing
+  async_ ttyOutputSender
+  serverMessageReceiver
+
+iosh :: (Member ByteInput r, Member ByteOutput r, Member Async r, Member TTY r, Member User r) => FilePath -> Args -> Sem r ()
+iosh path args = evalState @CarriedOverByteString Nothing $ isTerminal >>= bool (ptyIOSH path args) (procIOSH path args)
 
 main :: IO ()
 main = do

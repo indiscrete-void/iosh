@@ -1,33 +1,58 @@
 import Control.Monad
 import Data.Either
 import IOSH.Protocol
-import Pipes hiding (embed)
+import Pipes
 import Pipes.Prelude qualified as P
 import Polysemy
 import Polysemy.Conc hiding (Scoped)
 import Polysemy.Fail
-import Polysemy.PTY hiding (Resize)
+import Polysemy.PTY (PTY, PTYParams (..), scopedPTYToIO)
+import Polysemy.PTY qualified as PTY
+import Polysemy.Process (Process, ProcessParams (..), scopedProcToIO)
+import Polysemy.Process qualified as Proc
 import Polysemy.Scoped
 import Polysemy.Serialize
 import Polysemy.State
 import Polysemy.Transport
 import System.IO
 
-clientMessageReceiver :: (Member ByteInput r, Member PTY r, Member (State CarriedOverByteString) r) => Sem r ()
-clientMessageReceiver = runEffect $ for xInputter go
+procClientMessageReceiver :: (Member ByteInput r, Member Process r, Member (State CarriedOverByteString) r, Member Fail r) => Sem r ()
+procClientMessageReceiver = runEffect $ for xInputter go
   where
-    go (Input str) = lift $ write str
-    go (Resize wh) = lift $ resize wh
+    go (Input str) = lift $ Proc.write str
+    go (Resize _) = lift $ fail "cannot resize regular process"
+
+procOutputSender :: (Member ByteOutput r, Member Process r) => Sem r ()
+procOutputSender = runEffect $ Proc.reader >-> P.map Output >-> xOutputter
+
+procErrorSender :: (Member ByteOutput r, Member Process r) => Sem r ()
+procErrorSender = runEffect $ Proc.errReader >-> P.map Error >-> xOutputter
+
+procIOSH :: (Member ByteInput r, Member ByteOutput r, Member Race r, Member (Scoped ProcessParams Process) r, Member (State CarriedOverByteString) r, Member Fail r) => FilePath -> Args -> Sem r ()
+procIOSH procPath procArgs =
+  Proc.exec (ProcessParams procPath procArgs) $ do
+    result <- race (race procOutputSender procErrorSender) procClientMessageReceiver
+    when (isLeft result) $ Proc.wait >>= outputX . Termination
+
+ptyClientMessageReceiver :: (Member ByteInput r, Member PTY r, Member (State CarriedOverByteString) r) => Sem r ()
+ptyClientMessageReceiver = runEffect $ for xInputter go
+  where
+    go (Input str) = lift $ PTY.write str
+    go (Resize wh) = lift $ PTY.resize wh
 
 ptyOutputSender :: (Member ByteOutput r, Member PTY r) => Sem r ()
-ptyOutputSender = runEffect $ reader >-> P.map Output >-> xOutputter
+ptyOutputSender = runEffect $ PTY.reader >-> P.map Output >-> xOutputter
 
-iosh :: (Member ByteInput r, Member ByteOutput r, Member Fail r, Member Race r, Member (Scoped PTYParams PTY) r) => Sem r ()
+ptyIOSH :: (Member ByteInput r, Member ByteOutput r, Member Race r, Member (Scoped PTYParams PTY) r, Member (State CarriedOverByteString) r) => FilePath -> Args -> Size -> Sem r ()
+ptyIOSH procPath procArgs size =
+  PTY.exec (PTYParams procPath procArgs size) $ do
+    result <- race ptyOutputSender ptyClientMessageReceiver
+    when (isLeft result) $ PTY.wait >>= outputX . Termination
+
+iosh :: (Member ByteInput r, Member ByteOutput r, Member Fail r, Member Race r, Member (Scoped PTYParams PTY) r, Member (Scoped ProcessParams Process) r) => Sem r ()
 iosh = runDecoder $ do
   (Handshake procPath procArgs size) <- inputX
-  exec (PTYParams procPath procArgs size) $ do
-    result <- race ptyOutputSender clientMessageReceiver
-    when (isLeft result) $ wait >>= outputX . Termination
+  maybe (procIOSH procPath procArgs) (ptyIOSH procPath procArgs) size
 
 main :: IO ()
 main = do
@@ -35,6 +60,7 @@ main = do
   runFinal
     . (interpretRace . embedToFinal @IO)
     . scopedPTYToIO
+    . scopedProcToIO
     . inputToIO stdin
     . outputToIO stdout
     . failToEmbed @IO
