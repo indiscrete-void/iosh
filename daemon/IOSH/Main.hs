@@ -4,37 +4,38 @@ import IOSH.Protocol
 import Pipes hiding (embed)
 import Pipes.Prelude qualified as P
 import Polysemy
-import Polysemy.Conc
+import Polysemy.Conc hiding (Scoped)
 import Polysemy.Fail
 import Polysemy.PTY hiding (Resize)
+import Polysemy.Scoped
 import Polysemy.Serialize
 import Polysemy.State
 import Polysemy.Transport
 import System.IO
 
-clientMessageReceiver :: (Member ByteInput r, Member (PTY h) r, Member (State CarriedOverByteString) r) => h -> Sem r ()
-clientMessageReceiver h = runEffect $ for xInputter go
+clientMessageReceiver :: (Member ByteInput r, Member PTY r, Member (State CarriedOverByteString) r) => Sem r ()
+clientMessageReceiver = runEffect $ for xInputter go
   where
-    go (Stdin str) = lift $ write h str
-    go (Resize wh) = lift $ resize h wh
+    go (Stdin str) = lift $ write str
+    go (Resize wh) = lift $ resize wh
 
-ptyOutputSender :: (Member ByteOutput r, Member (PTY h) r) => h -> Sem r ()
-ptyOutputSender h = runEffect $ reader h >-> P.map Stdout >-> xOutputter
+ptyOutputSender :: (Member ByteOutput r, Member PTY r) => Sem r ()
+ptyOutputSender = runEffect $ reader >-> P.map Stdout >-> xOutputter
 
-iosh :: forall h r. (Member ByteInput r, Member ByteOutput r, Member Fail r, Member (PTY h) r, Member Race r) => Sem r ()
+iosh :: (Member ByteInput r, Member ByteOutput r, Member Fail r, Member Race r, Member (Scoped PTYParams PTY) r) => Sem r ()
 iosh = runDecoder $ do
   (Handshake procPath procArgs size) <- inputX
-  h <- exec @h procPath procArgs size
-  result <- race (ptyOutputSender h) (clientMessageReceiver h)
-  when (isLeft result) $ wait h >>= outputX . Termination
+  exec (PTYParams procPath procArgs size) $ do
+    result <- race ptyOutputSender clientMessageReceiver
+    when (isLeft result) $ wait >>= outputX . Termination
 
 main :: IO ()
 main = do
   mapM_ (`hSetBuffering` NoBuffering) [stdin, stdout]
   runFinal
     . (interpretRace . embedToFinal @IO)
-    . ptyToIO
+    . scopedPTYToIO
     . inputToIO stdin
     . outputToIO stdout
     . failToEmbed @IO
-    $ iosh @PTYHandle
+    $ iosh

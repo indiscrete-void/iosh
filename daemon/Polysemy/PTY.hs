@@ -1,6 +1,6 @@
 module Polysemy.PTY
   ( PTY (..),
-    PTYHandle,
+    PTYParams (..),
     exec,
     wait,
     resize,
@@ -8,7 +8,7 @@ module Polysemy.PTY
     write,
     reader,
     writer,
-    ptyToIO,
+    scopedPTYToIO,
   )
 where
 
@@ -20,38 +20,44 @@ import IOSH.Protocol hiding (Resize)
 import Pipes hiding (Effect, embed)
 import Pipes.Prelude qualified as P
 import Polysemy
+import Polysemy.Scoped
 import Polysemy.Transport
 import System.Exit
 import System.Posix.Pty
 import System.Process
 import Prelude hiding (read)
 
-type PTY :: Type -> Effect
-data PTY h m a where
-  Exec :: FilePath -> Args -> Size -> PTY h m h
-  Wait :: h -> PTY h m ExitCode
-  Resize :: h -> Size -> PTY h m ()
-  Read :: h -> PTY h m (Maybe ByteString)
-  Write :: h -> ByteString -> PTY h m ()
+type PTYParams :: Type
+data PTYParams = PTYParams FilePath Args Size
+
+type PTY :: Effect
+data PTY m a where
+  Wait :: PTY m ExitCode
+  Resize :: Size -> PTY m ()
+  Read :: PTY m (Maybe ByteString)
+  Write :: ByteString -> PTY m ()
+
+exec :: (Member (Scoped PTYParams PTY) r) => PTYParams -> InterpreterFor PTY r
+exec = scoped
 
 makeSem ''PTY
 
-reader :: (Member (PTY h) r) => h -> Producer ByteString (Sem r) ()
-reader h = P.repeatM (read h) >-> justYielder
+reader :: (Member PTY r) => Producer ByteString (Sem r) ()
+reader = P.repeatM read >-> justYielder
 
-writer :: (Member (PTY h) r) => h -> Consumer ByteString (Sem r) ()
-writer h = P.mapM_ $ write h
-
-type PTYHandle :: Type
-type PTYHandle = (Pty, ProcessHandle)
+writer :: (Member PTY r) => Consumer ByteString (Sem r) ()
+writer = P.mapM_ write
 
 ps2s :: Size -> (Int, Int)
 ps2s = join bimap fromIntegral
 
-ptyToIO :: (Member (Embed IO) r) => InterpreterFor (PTY PTYHandle) r
-ptyToIO = interpret $ \case
-  (Exec path args size) -> embed $ spawnWithPty Nothing True path args (ps2s size)
-  (Wait (_, h)) -> embed $ waitForProcess h
-  (Resize (pty, _) size) -> embed $ resizePty pty (ps2s size)
-  (Read (pty, _)) -> embed $ threadWaitReadPty pty >> ioErrorToNothing (readPty pty)
-  (Write (pty, _) str) -> embed $ threadWaitWritePty pty >> writePty pty str
+scopedPTYToIO :: (Member (Embed IO) r) => InterpreterFor (Scoped PTYParams PTY) r
+scopedPTYToIO = interpretScoped (\params f -> open params >>= \resource -> f resource <* close resource) ptyToIO
+  where
+    open (PTYParams path args size) = embed $ spawnWithPty Nothing True path args (ps2s size)
+    ptyToIO :: (Member (Embed IO) r) => (Pty, ProcessHandle) -> PTY m x -> Sem r x
+    ptyToIO (_, h) Wait = embed $ waitForProcess h
+    ptyToIO (pty, _) (Resize size) = embed $ resizePty pty (ps2s size)
+    ptyToIO (pty, _) Read = embed $ threadWaitReadPty pty >> ioErrorToNothing (readPty pty)
+    ptyToIO (pty, _) (Write str) = embed $ threadWaitWritePty pty >> writePty pty str
+    close (pty, _) = embed $ closePty pty
