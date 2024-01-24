@@ -7,7 +7,6 @@ module Polysemy.PTY
     read,
     write,
     reader,
-    writer,
     scopedPTYToIO,
   )
 where
@@ -44,9 +43,6 @@ makeSem ''PTY
 
 reader :: (Member PTY r) => Producer ByteString (Sem r) ()
 reader = P.repeatM read >-> justYielder
-
-writer :: (Member PTY r) => Consumer ByteString (Sem r) ()
-writer = P.mapM_ write
 
 ps2s :: Size -> (Int, Int)
 ps2s = join bimap fromIntegral

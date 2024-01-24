@@ -5,8 +5,6 @@ module Polysemy.User
     writeErr,
     exit,
     reader,
-    writer,
-    errWriter,
     userToIO,
   )
 where
@@ -31,12 +29,6 @@ makeSem ''User
 
 reader :: (Member User r) => Producer ByteString (Sem r) ()
 reader = P.repeatM read >-> justYielder
-
-writer :: (Member User r) => Consumer ByteString (Sem r) ()
-writer = P.mapM_ write
-
-errWriter :: (Member User r) => Consumer ByteString (Sem r) ()
-errWriter = P.mapM_ writeErr
 
 userToIO :: (Member (Embed IO) r) => Fd -> Fd -> Fd -> InterpreterFor User r
 userToIO i o e = interpret $ \case

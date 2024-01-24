@@ -7,7 +7,6 @@ module Polysemy.Process
     readErr,
     write,
     reader,
-    writer,
     errReader,
     scopedProcToIO,
   )
@@ -45,9 +44,6 @@ makeSem ''Process
 
 reader :: (Member Process r) => Producer ByteString (Sem r) ()
 reader = P.repeatM read >-> justYielder
-
-writer :: (Member Process r) => Consumer ByteString (Sem r) ()
-writer = P.mapM_ write
 
 errReader :: (Member Process r) => Producer ByteString (Sem r) ()
 errReader = P.repeatM readErr >-> justYielder
