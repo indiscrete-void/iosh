@@ -30,6 +30,7 @@ library common
         Polysemy.Serialize
         Polysemy.Transport
         IOSH.Async
+        IOSH.Maybe
         IOSH.Protocol
 
     hs-source-dirs: common
@@ -67,6 +68,7 @@ executable ioshd
     hs-source-dirs: daemon
     other-modules:
         Polysemy.PTY
+        Polysemy.Process
 
     build-depends:
         base ^>=4.16.4.0,

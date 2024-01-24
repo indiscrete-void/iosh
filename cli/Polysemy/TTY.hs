@@ -10,6 +10,7 @@ where
 
 import Control.Exception
 import Control.Monad
+import IOSH.Maybe
 import IOSH.Protocol
 import Polysemy
 import Polysemy.Final
@@ -26,9 +27,6 @@ data TTY m a where
   SetRaw :: TTY m ()
 
 makeSem ''TTY
-
-maybeFail :: (MonadFail m) => String -> Maybe a -> m a
-maybeFail str = maybe (fail str) pure
 
 protoSize :: IO Size
 protoSize = maybeProtoSize >>= maybeFail "unable to get terminal size"
