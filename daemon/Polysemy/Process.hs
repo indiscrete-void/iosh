@@ -60,6 +60,7 @@ scopedProcToIO = interpretScoped (\params f -> open params >>= \resource -> f re
   where
     open (ProcessParams path args) = embed $ do
       (Just i, Just o, Just e, ph) <- createProcess (pipedProc path args)
+      mapM_ (`hSetBuffering` NoBuffering) [i, o, e]
       pure (i, o, e, ph)
     procToIO :: (Member (Embed IO) r) => (Handle, Handle, Handle, ProcessHandle) -> Process m x -> Sem r x
     procToIO (_, _, _, ph) Wait = embed $ waitForProcess ph
