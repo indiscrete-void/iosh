@@ -67,4 +67,4 @@ scopedProcToIO = interpretScoped (\params f -> open params >>= \resource -> f re
     procToIO (_, o, _, _) Read = embed $ eofToNothing <$> hGetSome o 8192
     procToIO (_, _, e, _) ReadErr = embed $ eofToNothing <$> hGetSome e 8192
     procToIO (i, _, _, _) (Write str) = embed $ hPut i str
-    close (i, o, e, ph) = embed $ hClose i >> hClose o >> hClose e >> terminateProcess ph
+    close (i, o, e, ph) = embed $ cleanupProcess (Just i, Just o, Just e, ph)
