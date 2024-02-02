@@ -3,7 +3,7 @@ module Polysemy.TTY
     getSize,
     setResizeHandler,
     attributeBracket,
-    setRaw,
+    setRawAttributes,
     ttyToIOFinal,
   )
 where
@@ -24,7 +24,7 @@ data TTY m a where
   GetSize :: TTY m Size
   SetResizeHandler :: (Size -> m ()) -> TTY m ()
   AttributeBracket :: m a -> TTY m a
-  SetRaw :: TTY m ()
+  SetRawAttributes :: TTY m ()
 
 makeSem ''TTY
 
@@ -60,4 +60,4 @@ ttyToIOFinal term = interpretFinal @IO $ \case
   (AttributeBracket m) -> wrapBracketActionS m >>= liftS . go
     where
       go m' = bracket (getTerminalAttributes term) (setTerminalAttributesImmediately term) (const m')
-  SetRaw -> liftS $ getTerminalAttributes term >>= setTerminalAttributesImmediately term . withRaw
+  SetRawAttributes -> liftS $ getTerminalAttributes term >>= setTerminalAttributesImmediately term . withRaw

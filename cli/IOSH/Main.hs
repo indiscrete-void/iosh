@@ -20,7 +20,7 @@ async_ :: (Member Async r) => Sem r a -> Sem r ()
 async_ = void . async
 
 rawBracket :: (Member TTY r) => Sem r a -> Sem r a
-rawBracket m = attributeBracket $ setRaw >> m
+rawBracket m = attributeBracket $ setRawAttributes >> m
 
 serverMessageReceiver :: (Member ByteInput r, Member Decoder r, Member User r) => Sem r ()
 serverMessageReceiver = runEffect $ for xInputter go
