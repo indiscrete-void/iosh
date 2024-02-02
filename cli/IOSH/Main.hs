@@ -3,7 +3,7 @@ import IOSH.Options
 import IOSH.Protocol
 import Pipes hiding (await)
 import Pipes.Prelude qualified as P
-import Polysemy
+import Polysemy hiding (run)
 import Polysemy.Async
 import Polysemy.Fail
 import Polysemy.Serialize
@@ -48,11 +48,8 @@ iosh :: (Member ByteInput r, Member ByteOutput r, Member Async r, Member TTY r, 
 iosh True = ptyIOSH
 iosh False = procIOSH
 
-main :: IO ()
-main = do
-  (Options interactive tunProcCmd execPath execArgs) <- execOptionsParser
-  (Just tunIn, Just tunOut, _, _) <- createProcess (shell tunProcCmd) {std_in = CreatePipe, std_out = CreatePipe}
-  mapM_ (`hSetBuffering` NoBuffering) [tunIn, tunOut, stdin, stdout]
+run :: Bool -> FilePath -> Args -> Handle -> Handle -> IO ()
+run interactive execPath execArgs tunIn tunOut =
   runFinal
     . (ttyToIOFinal stdInput . embedToFinal @IO)
     . (asyncToIOFinal . embedToFinal @IO)
@@ -62,3 +59,10 @@ main = do
     . failToEmbed @IO
     . runDecoder
     $ iosh interactive execPath execArgs
+
+main :: IO ()
+main = do
+  (Options interactive tunProcCmd execPath execArgs) <- execOptionsParser
+  (Just tunIn, Just tunOut, _, _) <- createProcess (shell tunProcCmd) {std_in = CreatePipe, std_out = CreatePipe}
+  mapM_ (`hSetBuffering` NoBuffering) [tunIn, tunOut, stdin, stdout]
+  run interactive execPath execArgs tunIn tunOut

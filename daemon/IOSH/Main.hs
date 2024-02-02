@@ -3,7 +3,7 @@ import Data.Either
 import IOSH.Protocol
 import Pipes
 import Pipes.Prelude qualified as P
-import Polysemy
+import Polysemy hiding (run)
 import Polysemy.Conc hiding (Scoped)
 import Polysemy.Fail
 import Polysemy.PTY (PTY, PTYParams (..), scopedPTYToIO)
@@ -53,9 +53,8 @@ iosh = do
   (Handshake path args size) <- inputX
   maybe (procIOSH path args) (ptyIOSH path args) size
 
-main :: IO ()
-main = do
-  mapM_ (`hSetBuffering` NoBuffering) [stdin, stdout]
+run :: IO ()
+run =
   runFinal
     . (interpretRace . embedToFinal @IO)
     . scopedPTYToIO
@@ -65,3 +64,6 @@ main = do
     . failToEmbed @IO
     . runDecoder
     $ iosh
+
+main :: IO ()
+main = mapM_ (`hSetBuffering` NoBuffering) [stdin, stdout] >> run
