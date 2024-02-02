@@ -1,3 +1,4 @@
+import Control.Exception
 import Data.Bool
 import IOSH.Options
 import IOSH.Protocol
@@ -63,6 +64,5 @@ run interactive execPath execArgs tunIn tunOut =
 main :: IO ()
 main = do
   (Options interactive tunProcCmd execPath execArgs) <- execOptionsParser
-  (Just tunIn, Just tunOut, _, _) <- createProcess (shell tunProcCmd) {std_in = CreatePipe, std_out = CreatePipe}
-  mapM_ (`hSetBuffering` NoBuffering) [tunIn, tunOut, stdin, stdout]
-  run interactive execPath execArgs tunIn tunOut
+  hs@(Just tunIn, Just tunOut, _, _) <- createProcess (shell tunProcCmd) {std_in = CreatePipe, std_out = CreatePipe}
+  finally (mapM_ (`hSetBuffering` NoBuffering) [tunIn, tunOut, stdin, stdout] >> run interactive execPath execArgs tunIn tunOut) (cleanupProcess hs)
