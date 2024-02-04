@@ -29,7 +29,7 @@ parserInfo =
   info
     (helper <*> optsInfo)
     ( fullDesc
-        <> progDesc "Tell daemon to execute PROCESS with ARGUMENTS via COMMAND"
+        <> progDesc "Tell daemon to execute PATH with ARGUMENTS via COMMAND"
         <> header "Standard IO shell client"
         <> noIntersperse
     )
