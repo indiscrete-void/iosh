@@ -50,19 +50,18 @@ iosh :: (Member ByteInput r, Member ByteOutput r, Member Async r, Member TTY r, 
 iosh True = ptyIOSH
 iosh False = procIOSH
 
-run :: Bool -> FilePath -> Args -> ProcessHandles -> IO ()
-run interactive execPath execArgs (tunIn, tunOut, _, _) =
-  runFinal
-    . (ttyToIOFinal stdInput . embedToFinal @IO)
-    . (asyncToIOFinal . embedToFinal @IO)
-    . userToIO stdInput stdOutput stdError
-    . inputToIO tunOut
-    . outputToIO tunIn
-    . failToEmbed @IO
-    . runDecoder
-    $ iosh interactive execPath execArgs
-
 main :: IO ()
 main = do
   (Options interactive tunProcCmd execPath execArgs) <- execOptionsParser
   bracket (openProcess $ shell tunProcCmd) closeProcess (run interactive execPath execArgs)
+  where
+    run interactive execPath execArgs (i, o, _, _) =
+      runFinal
+        . (ttyToIOFinal stdInput . embedToFinal @IO)
+        . (asyncToIOFinal . embedToFinal @IO)
+        . userToIO stdInput stdOutput stdError
+        . inputToIO o
+        . outputToIO i
+        . failToEmbed @IO
+        . runDecoder
+        $ iosh interactive execPath execArgs

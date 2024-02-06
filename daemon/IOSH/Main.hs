@@ -53,17 +53,16 @@ iosh = do
   (Handshake path args size) <- inputX
   maybe (procIOSH path args) (ptyIOSH path args) size
 
-run :: IO ()
-run =
-  runFinal
-    . (interpretRace . embedToFinal @IO)
-    . scopedPTYToIOFinal
-    . scopedProcToIOFinal
-    . inputToIO stdin
-    . outputToIO stdout
-    . failToEmbed @IO
-    . runDecoder
-    $ iosh
-
 main :: IO ()
 main = mapM_ (`hSetBuffering` NoBuffering) [stdin, stdout] >> run
+  where
+    run =
+      runFinal
+        . (interpretRace . embedToFinal @IO)
+        . scopedPTYToIOFinal
+        . scopedProcToIOFinal
+        . inputToIO stdin
+        . outputToIO stdout
+        . failToEmbed @IO
+        . runDecoder
+        $ iosh
