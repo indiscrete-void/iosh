@@ -74,4 +74,5 @@ main = do
   bracket (createProcess $ pipedShell tunProcCmd) cleanupProcess $ \hs ->
     do
       (Just tunIn, Just tunOut, _, _) <- pure hs
-      mapM_ (`hSetBuffering` NoBuffering) [tunIn, tunOut] >> run interactive execPath execArgs tunIn tunOut
+      mapM_ (`hSetBuffering` NoBuffering) [tunIn, tunOut]
+      run interactive execPath execArgs tunIn tunOut
