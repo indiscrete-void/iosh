@@ -61,8 +61,17 @@ run interactive execPath execArgs tunIn tunOut =
     . runDecoder
     $ iosh interactive execPath execArgs
 
+pipedShell :: String -> CreateProcess
+pipedShell cmd =
+  (shell cmd)
+    { std_in = CreatePipe,
+      std_out = CreatePipe
+    }
+
 main :: IO ()
 main = do
   (Options interactive tunProcCmd execPath execArgs) <- execOptionsParser
-  hs@(Just tunIn, Just tunOut, _, _) <- createProcess (shell tunProcCmd) {std_in = CreatePipe, std_out = CreatePipe}
-  finally (mapM_ (`hSetBuffering` NoBuffering) [tunIn, tunOut] >> run interactive execPath execArgs tunIn tunOut) (cleanupProcess hs)
+  bracket (createProcess $ pipedShell tunProcCmd) cleanupProcess $ \hs ->
+    do
+      (Just tunIn, Just tunOut, _, _) <- pure hs
+      mapM_ (`hSetBuffering` NoBuffering) [tunIn, tunOut] >> run interactive execPath execArgs tunIn tunOut
