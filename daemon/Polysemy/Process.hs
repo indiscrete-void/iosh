@@ -12,9 +12,9 @@ module Polysemy.Process
   )
 where
 
-import Control.Monad
 import Data.ByteString (ByteString, hGetSome, hPut)
 import Data.Kind
+import IOSH.Process
 import IOSH.Protocol hiding (Resize)
 import Pipes hiding (Effect)
 import Pipes.Prelude qualified as P
@@ -48,24 +48,13 @@ reader = P.repeatM read >-> justYielder
 errReader :: (Member Process r) => Producer ByteString (Sem r) ()
 errReader = P.repeatM readErr >-> justYielder
 
-pipedProc :: FilePath -> Args -> CreateProcess
-pipedProc path args =
-  (proc path args)
-    { std_in = CreatePipe,
-      std_out = CreatePipe,
-      std_err = CreatePipe
-    }
-
 scopedProcToIOFinal :: (Member (Final IO) r) => InterpreterFor (Scoped ProcessParams Process) r
 scopedProcToIOFinal = interpretScoped (\params f -> resourceToIOFinal $ bracket (open params) close (raise . f)) procToIO
   where
-    open (ProcessParams path args) = embedFinal $ do
-      (Just i, Just o, Just e, ph) <- createProcess (pipedProc path args)
-      mapM_ (`hSetBuffering` NoBuffering) [i, o, e]
-      pure (i, o, e, ph)
-    procToIO :: (Member (Final IO) r) => (Handle, Handle, Handle, ProcessHandle) -> Process m x -> Sem r x
+    open (ProcessParams path args) = embedFinal $ openProcess (proc path args)
+    procToIO :: (Member (Final IO) r) => ProcessHandles -> Process m x -> Sem r x
     procToIO (_, _, _, ph) Wait = embedFinal $ waitForProcess ph
     procToIO (_, o, _, _) Read = embedFinal $ eofToNothing <$> hGetSome o 8192
     procToIO (_, _, e, _) ReadErr = embedFinal $ eofToNothing <$> hGetSome e 8192
     procToIO (i, _, _, _) (Write str) = embedFinal $ hPut i str
-    close (i, o, e, ph) = embedFinal $ cleanupProcess (Just i, Just o, Just e, ph)
+    close hs = embedFinal $ closeProcess hs

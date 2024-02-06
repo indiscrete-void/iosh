@@ -1,6 +1,7 @@
 import Control.Exception
 import Data.Bool
 import IOSH.Options
+import IOSH.Process
 import IOSH.Protocol
 import Pipes hiding (await)
 import Pipes.Prelude qualified as P
@@ -49,8 +50,8 @@ iosh :: (Member ByteInput r, Member ByteOutput r, Member Async r, Member TTY r, 
 iosh True = ptyIOSH
 iosh False = procIOSH
 
-run :: Bool -> FilePath -> Args -> Handle -> Handle -> IO ()
-run interactive execPath execArgs tunIn tunOut =
+run :: Bool -> FilePath -> Args -> ProcessHandles -> IO ()
+run interactive execPath execArgs (tunIn, tunOut, _, _) =
   runFinal
     . (ttyToIOFinal stdInput . embedToFinal @IO)
     . (asyncToIOFinal . embedToFinal @IO)
@@ -61,18 +62,7 @@ run interactive execPath execArgs tunIn tunOut =
     . runDecoder
     $ iosh interactive execPath execArgs
 
-pipedShell :: String -> CreateProcess
-pipedShell cmd =
-  (shell cmd)
-    { std_in = CreatePipe,
-      std_out = CreatePipe
-    }
-
 main :: IO ()
 main = do
   (Options interactive tunProcCmd execPath execArgs) <- execOptionsParser
-  bracket (createProcess $ pipedShell tunProcCmd) cleanupProcess $ \hs ->
-    do
-      (Just tunIn, Just tunOut, _, _) <- pure hs
-      mapM_ (`hSetBuffering` NoBuffering) [tunIn, tunOut]
-      run interactive execPath execArgs tunIn tunOut
+  bracket (openProcess $ shell tunProcCmd) closeProcess (run interactive execPath execArgs)
