@@ -7,7 +7,7 @@ module Polysemy.PTY
     read,
     write,
     reader,
-    scopedPTYToIO,
+    scopedPTYToIOFinal,
   )
 where
 
@@ -16,9 +16,10 @@ import Data.Bifunctor
 import Data.ByteString (ByteString)
 import Data.Kind
 import IOSH.Protocol hiding (Resize)
-import Pipes hiding (Effect, embed)
+import Pipes hiding (Effect)
 import Pipes.Prelude qualified as P
 import Polysemy
+import Polysemy.Resource
 import Polysemy.Scoped
 import Polysemy.Transport
 import System.Exit
@@ -47,13 +48,13 @@ reader = P.repeatM read >-> justYielder
 ps2s :: Size -> (Int, Int)
 ps2s = join bimap fromIntegral
 
-scopedPTYToIO :: (Member (Embed IO) r) => InterpreterFor (Scoped PTYParams PTY) r
-scopedPTYToIO = interpretScoped (\params f -> open params >>= \resource -> f resource <* close resource) ptyToIO
+scopedPTYToIOFinal :: (Member (Final IO) r) => InterpreterFor (Scoped PTYParams PTY) r
+scopedPTYToIOFinal = interpretScoped (\params f -> resourceToIOFinal $ bracket (open params) close (raise . f)) ptyToIO
   where
-    open (PTYParams path args size) = embed $ spawnWithPty Nothing True path args (ps2s size)
-    ptyToIO :: (Member (Embed IO) r) => (Pty, ProcessHandle) -> PTY m x -> Sem r x
-    ptyToIO (_, ph) Wait = embed $ waitForProcess ph
-    ptyToIO (pty, _) (Resize size) = embed $ resizePty pty (ps2s size)
-    ptyToIO (pty, _) Read = embed $ threadWaitReadPty pty >> ioErrorToNothing (readPty pty)
-    ptyToIO (pty, _) (Write str) = embed $ threadWaitWritePty pty >> writePty pty str
-    close (pty, _) = embed $ closePty pty
+    open (PTYParams path args size) = embedFinal $ spawnWithPty Nothing True path args (ps2s size)
+    ptyToIO (pty, ph) = \case {}
+    ptyToIO (_, ph) Wait = embedFinal $ waitForProcess ph
+    ptyToIO (pty, _) (Resize size) = embedFinal $ resizePty pty (ps2s size)
+    ptyToIO (pty, _) Read = embedFinal $ threadWaitReadPty pty >> ioErrorToNothing (readPty pty)
+    ptyToIO (pty, _) (Write str) = embedFinal $ threadWaitWritePty pty >> writePty pty str
+    close (pty, _) = embedFinal $ closePty pty

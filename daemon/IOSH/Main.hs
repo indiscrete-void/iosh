@@ -6,9 +6,9 @@ import Pipes.Prelude qualified as P
 import Polysemy hiding (run)
 import Polysemy.Conc hiding (Scoped)
 import Polysemy.Fail
-import Polysemy.PTY (PTY, PTYParams (..), scopedPTYToIO)
+import Polysemy.PTY (PTY, PTYParams (..), scopedPTYToIOFinal)
 import Polysemy.PTY qualified as PTY
-import Polysemy.Process (Process, ProcessParams (..), scopedProcToIO)
+import Polysemy.Process (Process, ProcessParams (..), scopedProcToIOFinal)
 import Polysemy.Process qualified as Proc
 import Polysemy.Scoped
 import Polysemy.Serialize
@@ -57,8 +57,8 @@ run :: IO ()
 run =
   runFinal
     . (interpretRace . embedToFinal @IO)
-    . scopedPTYToIO
-    . scopedProcToIO
+    . scopedPTYToIOFinal
+    . scopedProcToIOFinal
     . inputToIO stdin
     . outputToIO stdout
     . failToEmbed @IO
