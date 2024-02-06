@@ -52,7 +52,7 @@ scopedPTYToIOFinal :: (Member (Final IO) r) => InterpreterFor (Scoped PTYParams 
 scopedPTYToIOFinal = interpretScoped (\params f -> resourceToIOFinal $ bracket (open params) close (raise . f)) ptyToIO
   where
     open (PTYParams path args size) = embedFinal $ spawnWithPty Nothing True path args (ps2s size)
-    ptyToIO (pty, ph) = \case {}
+    ptyToIO :: (Member (Final IO) r) => (Pty, ProcessHandle) -> PTY m x -> Sem r x
     ptyToIO (_, ph) Wait = embedFinal $ waitForProcess ph
     ptyToIO (pty, _) (Resize size) = embedFinal $ resizePty pty (ps2s size)
     ptyToIO (pty, _) Read = embedFinal $ threadWaitReadPty pty >> ioErrorToNothing (readPty pty)
