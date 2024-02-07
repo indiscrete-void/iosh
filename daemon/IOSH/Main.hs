@@ -1,5 +1,6 @@
 import Control.Monad
 import Data.Either
+import Data.Maybe
 import IOSH.IO
 import IOSH.Protocol
 import Pipes
@@ -43,16 +44,19 @@ ptyClientMessageReceiver = runEffect $ for xInputter go
 ptyOutputSender :: (Member ByteOutput r, Member PTY r) => Sem r ()
 ptyOutputSender = runEffect $ PTY.reader >-> P.map Output >-> xOutputter
 
-ptyIOSH :: (Member ByteInput r, Member ByteOutput r, Member Race r, Member (Scoped PTYParams PTY) r, Member Decoder r) => FilePath -> Args -> Size -> Sem r ()
-ptyIOSH path args size =
-  PTY.exec (PTYParams path args size) $ do
-    result <- race ptyOutputSender ptyClientMessageReceiver
-    when (isLeft result) $ PTY.wait >>= outputX . Termination
+ptyIOSH :: (Member ByteInput r, Member ByteOutput r, Member Race r, Member (Scoped PTYParams PTY) r, Member Decoder r) => FilePath -> Args -> Maybe Size -> Sem r ()
+ptyIOSH path args maybeSize =
+  let size = fromMaybe (0, 0) maybeSize
+   in PTY.exec (PTYParams path args size) $ do
+        result <- race ptyOutputSender ptyClientMessageReceiver
+        when (isLeft result) $ PTY.wait >>= outputX . Termination
 
 iosh :: (Member ByteInput r, Member ByteOutput r, Member Fail r, Member Race r, Member (Scoped PTYParams PTY) r, Member (Scoped ProcessParams Process) r, Member Decoder r) => Sem r ()
 iosh = do
-  (Handshake path args size) <- inputX
-  maybe (procIOSH path args) (ptyIOSH path args) size
+  (Handshake pty path args maybeSize) <- inputX
+  if pty
+    then ptyIOSH path args maybeSize
+    else procIOSH path args
 
 main :: IO ()
 main = mapM_ disableBuffering [stdin, stdout] >> run

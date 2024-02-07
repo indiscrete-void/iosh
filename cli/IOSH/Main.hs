@@ -35,14 +35,14 @@ ttyOutputSender = runEffect $ reader >-> P.map Input >-> xOutputter
 
 ptyIOSH :: (Member ByteInput r, Member ByteOutput r, Member Decoder r, Member TTY r, Member Async r, Member User r) => FilePath -> Args -> Sem r ()
 ptyIOSH path args = rawBracket $ do
-  getSize >>= outputX . Handshake path args . Just
+  getSize >>= outputX . Handshake True path args
   setResizeHandler (outputX . Resize)
   async_ ttyOutputSender
   serverMessageReceiver
 
 procIOSH :: (Member ByteInput r, Member ByteOutput r, Member Decoder r, Member Async r, Member User r) => FilePath -> Args -> Sem r ()
 procIOSH path args = do
-  outputX $ Handshake path args Nothing
+  outputX $ Handshake False path args Nothing
   async_ ttyOutputSender
   serverMessageReceiver
 

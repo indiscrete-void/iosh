@@ -21,24 +21,22 @@ import Prelude hiding (read)
 
 type TTY :: Effect
 data TTY m a where
-  GetSize :: TTY m Size
+  GetSize :: TTY m (Maybe Size)
   SetResizeHandler :: (Size -> m ()) -> TTY m ()
   AttributeBracket :: m a -> TTY m a
   SetRawAttributes :: TTY m ()
 
 makeSem ''TTY
 
-protoSize :: IO Size
-protoSize = maybeProtoSize >>= maybeFail "unable to get terminal size"
+protoSize :: IO (Maybe Size)
+protoSize = fmap w2s <$> size
   where
-    maybeProtoSize = fmap w2s <$> size
-      where
-        w2s (Window h w) = (w, h)
+    w2s (Window h w) = (w, h)
 
-wrapHandlerS :: (Functor f) => (Size -> n a) -> Sem (WithStrategy IO f n) (IO a)
+wrapHandlerS :: (Functor f) => (Size -> n ()) -> Sem (WithStrategy IO f n) (IO ())
 wrapHandlerS f = liftM3 wrapper (bindS f) getInspectorS getInitialStateS
   where
-    wrapper f' ins s = (protoSize >>= f' . (<$ s)) >>= maybeFail "unable to inspect SIGWINCH handler result" . inspect ins
+    wrapper f' ins s = (protoSize >>= maybe (pure . void $ s) (f' . (<$ s))) >>= maybeFail "unable to inspect SIGWINCH handler result" . inspect ins
 
 wrapBracketActionS :: n a -> Sem (WithStrategy IO f n) (IO a)
 wrapBracketActionS m = liftM2 wrapper (runS m) getInspectorS
