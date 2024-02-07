@@ -14,8 +14,8 @@ optsInfo :: Parser Options
 optsInfo =
   Options
     <$> switch
-      ( long "tty"
-          <> short 't'
+      ( long "pty"
+          <> short 'p'
           <> help "Allocate a pseudo-TTY"
       )
     <*> argument str (metavar "COMMAND")
