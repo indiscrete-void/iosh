@@ -8,7 +8,7 @@ import Data.Kind
 import Options.Applicative
 
 type Options :: Type
-data Options = Options Bool String FilePath [String]
+data Options = Options Bool Bool String FilePath [String]
 
 optsInfo :: Parser Options
 optsInfo =
@@ -17,6 +17,11 @@ optsInfo =
       ( long "pty"
           <> short 'p'
           <> help "Allocate a pseudo-TTY"
+      )
+    <*> switch
+      ( long "env"
+          <> short 'e'
+          <> help "Inherit environment variables"
       )
     <*> argument str (metavar "COMMAND")
     <*> argument str (metavar "PATH")

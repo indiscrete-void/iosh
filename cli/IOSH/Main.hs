@@ -1,3 +1,4 @@
+import Control.Monad
 import Data.Bool
 import IOSH.Options
 import IOSH.Protocol
@@ -31,25 +32,26 @@ serverMessageReceiver = runEffect $ for xReader go
 ttyOutputSender :: (Member Process r, Member User r) => Sem r ()
 ttyOutputSender = runEffect $ reader >-> P.map Input >-> xWriter
 
-ptyIOSH :: (Member Process r, Member Decoder r, Member TTY r, Member Async r, Member User r) => FilePath -> Args -> Sem r ()
-ptyIOSH path args = rawBracket $ do
-  getSize >>= writeX . Handshake True path args
+ptyIOSH :: (Member Process r, Member Decoder r, Member TTY r, Member Async r, Member User r) => Maybe Environment -> FilePath -> Args -> Sem r ()
+ptyIOSH maybeEnv path args = rawBracket $ do
+  getSize >>= writeX . Handshake True maybeEnv path args
   setResizeHandler (writeX . Resize)
   async_ ttyOutputSender
   serverMessageReceiver
 
-procIOSH :: (Member Process r, Member Decoder r, Member Async r, Member User r) => FilePath -> Args -> Sem r ()
-procIOSH path args = do
-  writeX $ Handshake False path args Nothing
+procIOSH :: (Member Process r, Member Decoder r, Member Async r, Member User r) => Maybe Environment -> FilePath -> Args -> Sem r ()
+procIOSH maybeEnv path args = do
+  writeX $ Handshake False maybeEnv path args Nothing
   async_ ttyOutputSender
   serverMessageReceiver
 
 iosh :: (Member (Scoped ProcessParams Process) r, Member Async r, Member TTY r, Member User r, Member Decoder r) => Options -> Sem r ()
-iosh (Options pty tunProcCmd path args) =
-  exec (ShellProcess tunProcCmd) $
+iosh (Options pty inheritEnv tunProcCmd path args) =
+  exec (ShellProcess tunProcCmd) $ do
+    maybeEnv <- bool (pure Nothing) (Just <$> getEnv) inheritEnv
     if pty
-      then ptyIOSH path args
-      else procIOSH path args
+      then ptyIOSH maybeEnv path args
+      else procIOSH maybeEnv path args
 
 main :: IO ()
 main = execOptionsParser >>= run

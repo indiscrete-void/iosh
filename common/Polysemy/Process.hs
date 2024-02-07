@@ -21,6 +21,7 @@ import Data.Kind
 import Data.Serialize
 import IOSH.IO
 import IOSH.Maybe
+import IOSH.Protocol
 import Pipes hiding (Effect)
 import Pipes.Prelude qualified as P
 import Polysemy
@@ -33,7 +34,7 @@ import System.Process
 import Prelude hiding (read)
 
 type ProcessParams :: Type
-data ProcessParams = PathArgsProcess FilePath [String] | ShellProcess String
+data ProcessParams = EnvPathArgsProcess (Maybe Environment) FilePath [String] | ShellProcess String
 
 type Process :: Effect
 data Process m a where
@@ -84,5 +85,5 @@ scopedProcToIOFinal =
       ReadErr -> embedFinal $ eofToNothing <$> hGetSome e 8192
       (Write str) -> embedFinal $ hPut i str
     closeProc (i, o, e, ph) = embedFinal $ cleanupProcess (Just i, Just o, Just e, ph)
-    toCreateProcess (PathArgsProcess path args) = proc path args
+    toCreateProcess (EnvPathArgsProcess maybeEnv path args) = (proc path args) {env = maybeEnv}
     toCreateProcess (ShellProcess cmd) = shell cmd

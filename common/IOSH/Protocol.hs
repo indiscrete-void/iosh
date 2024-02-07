@@ -6,6 +6,7 @@ module IOSH.Protocol
   ( Handshake (..),
     ClientMessage (..),
     ServerMessage (..),
+    Environment,
     Args,
     Size,
   )
@@ -18,6 +19,9 @@ import Data.Serialize
 import GHC.Generics
 import System.Exit
 
+type Environment :: Type
+type Environment = [(String, String)]
+
 type Args :: Type
 type Args = [String]
 
@@ -26,8 +30,8 @@ type Size = (Int16, Int16)
 
 type Handshake :: Type
 data Handshake where
-  Handshake :: Bool -> FilePath -> Args -> Maybe Size -> Handshake
-  deriving stock (Generic)
+  Handshake :: Bool -> Maybe Environment -> FilePath -> Args -> Maybe Size -> Handshake
+  deriving stock (Show, Generic)
 
 type ClientMessage :: Type
 data ClientMessage where
