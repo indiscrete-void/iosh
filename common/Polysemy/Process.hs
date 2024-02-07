@@ -18,6 +18,7 @@ where
 
 import Data.ByteString (ByteString, hGetSome, hPut)
 import Data.Kind
+import Data.Maybe
 import Data.Serialize
 import IOSH.IO
 import IOSH.Maybe
@@ -34,7 +35,7 @@ import System.Process
 import Prelude hiding (read)
 
 type ProcessParams :: Type
-data ProcessParams = EnvPathArgsProcess (Maybe Environment) FilePath [String] | ShellProcess String
+data ProcessParams = InternalProcess (Maybe Environment) FilePath [String] | TunnelProcess String
 
 type Process :: Effect
 data Process m a where
@@ -74,16 +75,14 @@ scopedProcToIOFinal =
     )
     procToIO
   where
-    openProc params = embedFinal $ do
-      (Just i, Just o, Just e, ph) <- createProcess ((toCreateProcess params) {std_in = CreatePipe, std_out = CreatePipe, std_err = CreatePipe})
-      pure (i, o, e, ph)
-    disableProcBuffering (i, o, e, _) = mapM_ disableBuffering [i, o, e]
-    procToIO :: (Member (Final IO) r) => (Handle, Handle, Handle, ProcessHandle) -> Process m x -> Sem r x
+    openProc params = embedFinal $ createProcess (toCreateProcess params)
+    disableProcBuffering (i, o, e, _) = mapM_ disableBuffering (catMaybes [i, o, e])
+    procToIO :: (Member (Final IO) r) => (Maybe Handle, Maybe Handle, Maybe Handle, ProcessHandle) -> Process m x -> Sem r x
     procToIO (i, o, e, ph) = \case
       Wait -> embedFinal $ waitForProcess ph
-      Read -> embedFinal $ eofToNothing <$> hGetSome o 8192
-      ReadErr -> embedFinal $ eofToNothing <$> hGetSome e 8192
-      (Write str) -> embedFinal $ hPut i str
-    closeProc (i, o, e, ph) = embedFinal $ cleanupProcess (Just i, Just o, Just e, ph)
-    toCreateProcess (EnvPathArgsProcess maybeEnv path args) = (proc path args) {env = maybeEnv}
-    toCreateProcess (ShellProcess cmd) = shell cmd
+      Read -> embedFinal $ eofToNothing <$> (maybeFail "failed to get output stream" o >>= flip hGetSome 8192)
+      ReadErr -> embedFinal $ eofToNothing <$> (maybeFail "failed to get error stream" e >>= flip hGetSome 8192)
+      (Write str) -> embedFinal (maybeFail "failed to get input stream" i >>= flip hPut str)
+    closeProc hs = embedFinal $ cleanupProcess hs
+    toCreateProcess (InternalProcess maybeEnv path args) = (proc path args) {env = maybeEnv, std_in = CreatePipe, std_out = CreatePipe, std_err = CreatePipe}
+    toCreateProcess (TunnelProcess cmd) = (shell cmd) {std_in = CreatePipe, std_out = CreatePipe}

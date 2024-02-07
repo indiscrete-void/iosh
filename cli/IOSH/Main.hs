@@ -47,7 +47,7 @@ procIOSH maybeEnv path args = do
 
 iosh :: (Member (Scoped ProcessParams Process) r, Member Async r, Member TTY r, Member User r, Member Decoder r) => Options -> Sem r ()
 iosh (Options pty inheritEnv tunProcCmd path args) =
-  exec (ShellProcess tunProcCmd) $ do
+  exec (TunnelProcess tunProcCmd) $ do
     maybeEnv <- bool (pure Nothing) (Just <$> getEnv) inheritEnv
     if pty
       then ptyIOSH maybeEnv path args

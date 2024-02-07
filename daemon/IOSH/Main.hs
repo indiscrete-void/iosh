@@ -31,7 +31,7 @@ procErrorSender = runEffect $ Proc.errReader >-> P.map Error >-> xOutputter
 
 procIOSH :: (Member ByteInput r, Member ByteOutput r, Member Race r, Member (Scoped ProcessParams Process) r, Member Decoder r, Member Fail r) => Maybe Environment -> FilePath -> Args -> Sem r ()
 procIOSH maybeEnv path args =
-  Proc.exec (EnvPathArgsProcess maybeEnv path args) $ do
+  Proc.exec (InternalProcess maybeEnv path args) $ do
     result <- race (race procOutputSender procErrorSender) procClientMessageReceiver
     when (isLeft result) $ Proc.wait >>= outputX . Termination
 
