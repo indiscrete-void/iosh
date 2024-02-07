@@ -53,8 +53,9 @@ scopedProcToIOFinal = interpretScoped (\params f -> resourceToIOFinal $ bracket 
   where
     open (ProcessParams path args) = embedFinal $ openProcess (proc path args)
     procToIO :: (Member (Final IO) r) => ProcessHandles -> Process m x -> Sem r x
-    procToIO (_, _, _, ph) Wait = embedFinal $ waitForProcess ph
-    procToIO (_, o, _, _) Read = embedFinal $ eofToNothing <$> hGetSome o 8192
-    procToIO (_, _, e, _) ReadErr = embedFinal $ eofToNothing <$> hGetSome e 8192
-    procToIO (i, _, _, _) (Write str) = embedFinal $ hPut i str
+    procToIO (i, o, e, ph) = \case
+      Wait -> embedFinal $ waitForProcess ph
+      Read -> embedFinal $ eofToNothing <$> hGetSome o 8192
+      ReadErr -> embedFinal $ eofToNothing <$> hGetSome e 8192
+      (Write str) -> embedFinal $ hPut i str
     close hs = embedFinal $ closeProcess hs
