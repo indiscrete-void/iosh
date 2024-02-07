@@ -13,7 +13,7 @@ import Data.ByteString
 import Pipes hiding (Effect, embed)
 import Pipes.Prelude qualified as P
 import Polysemy
-import Polysemy.Transport
+import IOSH.Maybe
 import System.Exit
 import System.Posix.ByteString
 import Prelude hiding (read)

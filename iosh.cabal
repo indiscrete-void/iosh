@@ -28,17 +28,16 @@ library common
     import: default
     exposed-modules:
         Polysemy.Serialize
-        Polysemy.Transport
+        Polysemy.Process
         IOSH.Maybe
         IOSH.Protocol
-        IOSH.Process
         IOSH.IO
 
     hs-source-dirs: common
     build-depends:
         base ^>=4.16.4.0,
-        process ^>=1.6.18.0,
         bytestring ^>=0.11.5.2,
+        process ^>=1.6.18.0,
         polysemy ^>=1.9.1.3,
         pipes ^>=4.3.16,
         cereal ^>=0.5.8.3,
@@ -54,7 +53,6 @@ executable iosh
 
     build-depends:
         base ^>=4.16.4.0,
-        process ^>=1.6.18.0,
         bytestring ^>=0.11.5.2,
         polysemy ^>=1.9.1.3,
         pipes ^>=4.3.16,
@@ -68,8 +66,8 @@ executable ioshd
     main-is: IOSH/Main.hs
     hs-source-dirs: daemon
     other-modules:
+        Polysemy.Transport
         Polysemy.PTY
-        Polysemy.Process
 
     build-depends:
         base ^>=4.16.4.0,
@@ -80,3 +78,4 @@ executable ioshd
         common,
         process ^>=1.6.18.0,
         posix-pty ^>=0.2.2,
+        cereal ^>=0.5.8.3,

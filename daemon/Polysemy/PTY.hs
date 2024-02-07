@@ -15,6 +15,7 @@ import Control.Monad
 import Data.Bifunctor
 import Data.ByteString (ByteString)
 import Data.Kind
+import IOSH.Maybe
 import IOSH.Protocol hiding (Resize)
 import Pipes hiding (Effect)
 import Pipes.Prelude qualified as P

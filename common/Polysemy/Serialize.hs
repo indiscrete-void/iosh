@@ -1,10 +1,7 @@
 module Polysemy.Serialize
   ( Decoder,
     runDecoder,
-    inputX,
-    outputX,
-    xInputter,
-    xOutputter,
+    decoder,
   )
 where
 
@@ -12,11 +9,8 @@ import Data.ByteString (ByteString)
 import Data.Serialize
 import Data.Serialize qualified as Serial
 import Pipes
-import Pipes.Prelude qualified as P
 import Polysemy hiding (send)
-import Polysemy.Fail
 import Polysemy.State as State
-import Polysemy.Transport
 
 type Decoder :: Polysemy.Effect
 type Decoder = State (Maybe ByteString)
@@ -32,15 +26,3 @@ decoder = takeState >>= maybe await pure >>= go . runGetPartial Serial.get
     go (Serial.Fail _ left) = putJust left
     go (Done a left) = putJust left >> yield a >> decoder
     go (Partial f) = await >>= go . f
-
-xInputter :: (Member ByteInput r, Member Decoder r, Serialize a) => Producer a (Sem r) ()
-xInputter = inputter >-> decoder
-
-xOutputter :: (Member ByteOutput r, Serialize a) => Consumer a (Sem r) ()
-xOutputter = P.map encode >-> outputter
-
-inputX :: (Member ByteInput r, Member Decoder r, Member Fail r, Serialize a) => Sem r a
-inputX = P.head xInputter >>= maybe (fail "end of pipe reached") pure
-
-outputX :: (Member ByteOutput r, Serialize a) => a -> Sem r ()
-outputX a = runEffect $ yield a >-> xOutputter
