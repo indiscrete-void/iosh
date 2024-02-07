@@ -56,9 +56,10 @@ main = execOptionsParser >>= run
   where
     run =
       runFinal
-        . (ttyToIOFinal stdInput . embedToFinal @IO)
-        . (asyncToIOFinal . embedToFinal @IO)
-        . (scopedProcToIOFinal . embedToFinal @IO)
+        . ttyToIOFinal stdInput
+        . asyncToIOFinal
+        . scopedProcToIOFinal
+        . embedToFinal @IO
         . userToIO stdInput stdOutput stdError
         . failToEmbed @IO
         . runDecoder

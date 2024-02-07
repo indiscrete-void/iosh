@@ -63,7 +63,8 @@ main = mapM_ disableBuffering [stdin, stdout] >> run
   where
     run =
       runFinal
-        . (interpretRace . embedToFinal @IO)
+        . interpretRace
+        . embedToFinal @IO
         . scopedPTYToIOFinal
         . scopedProcToIOFinal
         . inputToIO stdin
