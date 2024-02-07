@@ -52,11 +52,11 @@ iosh False = procIOSH
 
 main :: IO ()
 main = do
-  (Options tty tunProcCmd execPath execArgs) <- execOptionsParser
+  (Options pty tunProcCmd execPath execArgs) <- execOptionsParser
   bracket (openProcess $ shell tunProcCmd) closeProcess $
-    \hs@(i, o, _, _) -> disableProcessBuffering hs >> run tty execPath execArgs i o
+    \hs@(i, o, _, _) -> disableProcessBuffering hs >> run pty execPath execArgs i o
   where
-    run tty execPath execArgs i o =
+    run pty execPath execArgs i o =
       runFinal
         . (ttyToIOFinal stdInput . embedToFinal @IO)
         . (asyncToIOFinal . embedToFinal @IO)
@@ -65,4 +65,4 @@ main = do
         . outputToIO i
         . failToEmbed @IO
         . runDecoder
-        $ iosh tty execPath execArgs
+        $ iosh pty execPath execArgs
