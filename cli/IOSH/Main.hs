@@ -53,9 +53,9 @@ iosh False = procIOSH
 main :: IO ()
 main = do
   (Options tty tunProcCmd execPath execArgs) <- execOptionsParser
-  bracket (openProcess $ shell tunProcCmd) closeProcess (run tty execPath execArgs)
+  bracket (openProcess $ shell tunProcCmd) closeProcess (\(i, o, _, _) -> run tty execPath execArgs i o)
   where
-    run tty execPath execArgs (i, o, _, _) =
+    run tty execPath execArgs i o =
       runFinal
         . (ttyToIOFinal stdInput . embedToFinal @IO)
         . (asyncToIOFinal . embedToFinal @IO)
