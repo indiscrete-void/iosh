@@ -32,6 +32,7 @@ library common
         IOSH.Maybe
         IOSH.Protocol
         IOSH.Process
+        IOSH.IO
 
     hs-source-dirs: common
     build-depends:

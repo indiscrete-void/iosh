@@ -49,7 +49,12 @@ errReader :: (Member Process r) => Producer ByteString (Sem r) ()
 errReader = P.repeatM readErr >-> justYielder
 
 scopedProcToIOFinal :: (Member (Final IO) r) => InterpreterFor (Scoped ProcessParams Process) r
-scopedProcToIOFinal = interpretScoped (\params f -> resourceToIOFinal $ bracket (open params) close (raise . f)) procToIO
+scopedProcToIOFinal =
+  interpretScoped
+    ( \params f -> resourceToIOFinal . bracket (open params) close $
+        \hs -> embedFinal (disableProcessBuffering hs) >> raise (f hs)
+    )
+    procToIO
   where
     open (ProcessParams path args) = embedFinal $ openProcess (proc path args)
     procToIO :: (Member (Final IO) r) => ProcessHandles -> Process m x -> Sem r x

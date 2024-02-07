@@ -1,5 +1,6 @@
 import Control.Monad
 import Data.Either
+import IOSH.IO
 import IOSH.Protocol
 import Pipes
 import Pipes.Prelude qualified as P
@@ -54,7 +55,7 @@ iosh = do
   maybe (procIOSH path args) (ptyIOSH path args) size
 
 main :: IO ()
-main = mapM_ (`hSetBuffering` NoBuffering) [stdin, stdout] >> run
+main = mapM_ disableBuffering [stdin, stdout] >> run
   where
     run =
       runFinal
