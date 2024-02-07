@@ -11,6 +11,7 @@ where
 import Control.Exception
 import Control.Monad
 import Data.Int
+import IOSH.Maybe
 import IOSH.Protocol
 import Polysemy
 import Polysemy.Final
@@ -51,4 +52,3 @@ ttyToIOFinal term = interpretFinal @IO $ \case
     protoSize = fmap w2s <$> size @Int16
       where
         w2s (Window h w) = (w, h)
-    maybeFail str = maybe (fail str) pure
