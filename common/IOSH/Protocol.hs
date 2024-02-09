@@ -32,7 +32,7 @@ type Size = (Int16, Int16)
 type Handshake :: Type
 data Handshake where
   Handshake :: Bool -> Maybe Environment -> FilePath -> Args -> Maybe Size -> Handshake
-  deriving stock (Show, Generic)
+  deriving stock (Generic)
 
 type ClientMessage :: Type
 data ClientMessage where
