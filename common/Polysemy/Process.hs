@@ -89,5 +89,5 @@ scopedProcToIOFinal =
       ReadErr -> embedFinal $ eofToNothing <$> (maybeFail "failed to get error stream" e >>= flip hGetSome 8192)
       (Write str) -> embedFinal (maybeFail "failed to get input stream" i >>= flip hPut str)
     closeProc hs = embedFinal $ cleanupProcess hs
-    toCreateProcess (InternalProcess maybeEnv path args) = (proc path args) {env = maybeEnv, std_in = CreatePipe, std_out = CreatePipe, std_err = CreatePipe}
+    toCreateProcess (InternalProcess sessionEnv path args) = (proc path args) {env = sessionEnv, std_in = CreatePipe, std_out = CreatePipe, std_err = CreatePipe}
     toCreateProcess (TunnelProcess cmd) = (shell cmd) {std_in = CreatePipe, std_out = CreatePipe}

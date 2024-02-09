@@ -52,7 +52,7 @@ ps2s = join bimap fromIntegral
 scopedPTYToIOFinal :: (Member (Final IO) r) => InterpreterFor (Scoped PTYParams PTY) r
 scopedPTYToIOFinal = interpretScoped (\params f -> resourceToIOFinal $ bracket (open params) close (raise . f)) ptyToIO
   where
-    open (PTYParams maybeEnv path args size) = embedFinal $ spawnWithPty maybeEnv True path args (ps2s size)
+    open (PTYParams sessionEnv path args size) = embedFinal $ spawnWithPty sessionEnv True path args (ps2s size)
     ptyToIO :: (Member (Final IO) r) => (Pty, ProcessHandle) -> PTY m x -> Sem r x
     ptyToIO (pty, ph) = \case
       Wait -> embedFinal $ waitForProcess ph

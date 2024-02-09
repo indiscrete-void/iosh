@@ -31,8 +31,8 @@ procErrorSender :: (Member ByteOutput r, Member Process r) => Sem r ()
 procErrorSender = runEffect $ Proc.errReader >-> P.map Error >-> xOutputter
 
 procIOSHD :: (Member ByteInput r, Member ByteOutput r, Member Race r, Member (Scoped ProcessParams Process) r, Member Decoder r, Member Fail r) => Maybe Environment -> FilePath -> Args -> Sem r ()
-procIOSHD maybeEnv path args =
-  Proc.exec (InternalProcess maybeEnv path args) $ do
+procIOSHD sessionEnv path args =
+  Proc.exec (InternalProcess sessionEnv path args) $ do
     result <- race (race procOutputSender procErrorSender) procClientMessageReceiver
     when (isLeft result) $ Proc.wait >>= outputX . Termination
 
@@ -46,18 +46,18 @@ ptyOutputSender :: (Member ByteOutput r, Member PTY r) => Sem r ()
 ptyOutputSender = runEffect $ PTY.reader >-> P.map Output >-> xOutputter
 
 ptyIOSHD :: (Member ByteInput r, Member ByteOutput r, Member Race r, Member (Scoped PTYParams PTY) r, Member Decoder r, Member Fail r) => Maybe Environment -> FilePath -> Args -> Maybe Size -> Sem r ()
-ptyIOSHD maybeEnv path args maybeSize =
+ptyIOSHD sessionEnv path args maybeSize =
   let size = fromMaybe (0, 0) maybeSize
-   in PTY.exec (PTYParams maybeEnv path args size) $ do
+   in PTY.exec (PTYParams sessionEnv path args size) $ do
         result <- race ptyOutputSender ptyClientMessageReceiver
         when (isLeft result) $ PTY.wait >>= outputX . Termination
 
 ioshd :: (Member ByteInput r, Member ByteOutput r, Member Fail r, Member Race r, Member (Scoped PTYParams PTY) r, Member (Scoped ProcessParams Process) r, Member Decoder r, Member Exit r) => Sem r ()
 ioshd = do
-  (Handshake pty maybeEnv path args maybeSize) <- inputX
+  (Handshake pty sessionEnv path args maybeSize) <- inputX
   if pty
-    then ptyIOSHD maybeEnv path args maybeSize
-    else procIOSHD maybeEnv path args
+    then ptyIOSHD sessionEnv path args maybeSize
+    else procIOSHD sessionEnv path args
   (Termination code) <- inputX
   exit code
 
