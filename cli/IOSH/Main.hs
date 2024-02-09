@@ -33,8 +33,14 @@ serverMessageReceiver = runEffect $ for xReader go
 ttyOutputSender :: (Member Process r, Member User r) => Sem r ()
 ttyOutputSender = runEffect $ reader >-> P.map Input >-> xWriter
 
+ptyInit :: (Member Process r, Member TTY r) => FilePath -> Args -> Sem r () -> Maybe Environment -> Sem r ()
+ptyInit path args go sessionEnv = getSize >>= writeX . Handshake True sessionEnv path args >> setResizeHandler (writeX . Resize) >> rawBracket go
+
+procInit :: (Member Process r) => FilePath -> Args -> Sem r () -> Maybe Environment -> Sem r ()
+procInit path args go sesionEnv = writeX (Handshake False sesionEnv path args Nothing) >> go
+
 init :: (Member Process r, Member TTY r) => Bool -> FilePath -> Args -> Sem r () -> Maybe Environment -> Sem r ()
-init pty path args go sessionEnv = getSize >>= writeX . Handshake pty sessionEnv path args >> setResizeHandler (writeX . Resize) >> bool rawBracket id pty go
+init = bool procInit ptyInit
 
 getSessionEnv :: (Member User r) => Bool -> Sem r (Maybe Environment)
 getSessionEnv = bool (pure Nothing) (Just <$> getEnv)
