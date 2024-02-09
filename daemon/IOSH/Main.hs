@@ -31,8 +31,8 @@ procOutputSender = runEffect $ Proc.reader >-> P.map Output >-> xOutputter
 procErrorSender :: (Member ByteOutput r, Member Process r) => Sem r ()
 procErrorSender = runEffect $ Proc.errReader >-> P.map Error >-> xOutputter
 
-procIOSH :: (Member ByteInput r, Member ByteOutput r, Member Race r, Member (Scoped ProcessParams Process) r, Member Decoder r, Member Fail r) => Maybe Environment -> FilePath -> Args -> Sem r ()
-procIOSH maybeEnv path args =
+procIOSHD :: (Member ByteInput r, Member ByteOutput r, Member Race r, Member (Scoped ProcessParams Process) r, Member Decoder r, Member Fail r) => Maybe Environment -> FilePath -> Args -> Sem r ()
+procIOSHD maybeEnv path args =
   Proc.exec (InternalProcess maybeEnv path args) $ do
     result <- race (race procOutputSender procErrorSender) procClientMessageReceiver
     when (isLeft result) $ Proc.wait >>= outputX . Termination
@@ -46,20 +46,20 @@ ptyClientMessageReceiver = runEffect $ for xInputter go
 ptyOutputSender :: (Member ByteOutput r, Member PTY r) => Sem r ()
 ptyOutputSender = runEffect $ PTY.reader >-> P.map Output >-> xOutputter
 
-ptyIOSH :: (Member ByteInput r, Member ByteOutput r, Member Race r, Member (Scoped PTYParams PTY) r, Member Decoder r) => Maybe Environment -> FilePath -> Args -> Maybe Size -> Sem r ()
-ptyIOSH maybeEnv path args maybeSize =
+ptyIOSHD :: (Member ByteInput r, Member ByteOutput r, Member Race r, Member (Scoped PTYParams PTY) r, Member Decoder r) => Maybe Environment -> FilePath -> Args -> Maybe Size -> Sem r ()
+ptyIOSHD maybeEnv path args maybeSize =
   let size = fromMaybe (0, 0) maybeSize
    in PTY.exec (PTYParams maybeEnv path args size) $ do
         result <- race ptyOutputSender ptyClientMessageReceiver
         when (isLeft result) $ PTY.wait >>= outputX . Termination
 
-iosh :: (Member ByteInput r, Member ByteOutput r, Member Fail r, Member Race r, Member (Scoped PTYParams PTY) r, Member (Scoped ProcessParams Process) r, Member Decoder r, Member Resource r) => Sem r ()
-iosh = do
+ioshd :: (Member ByteInput r, Member ByteOutput r, Member Fail r, Member Race r, Member (Scoped PTYParams PTY) r, Member (Scoped ProcessParams Process) r, Member Decoder r, Member Resource r) => Sem r ()
+ioshd = do
   (Handshake pty maybeEnv path args maybeSize) <- inputX
   onException
     ( if pty
-        then ptyIOSH maybeEnv path args maybeSize
-        else procIOSH maybeEnv path args
+        then ptyIOSHD maybeEnv path args maybeSize
+        else procIOSHD maybeEnv path args
     )
     (outputX $ Termination (ExitFailure 1))
 
@@ -77,4 +77,4 @@ main = mapM_ disableBuffering [stdin, stdout] >> run
         . outputToIO stdout
         . failToEmbed @IO
         . runDecoder
-        $ iosh
+        $ ioshd
