@@ -32,16 +32,13 @@ serverMessageReceiver = runEffect $ for xReader go
 ttyOutputSender :: (Member Process r, Member User r) => Sem r ()
 ttyOutputSender = runEffect $ reader >-> P.map Input >-> xWriter
 
-ptyInit :: (Member Process r, Member TTY r) => FilePath -> Args -> Maybe Environment -> Sem r ()
-ptyInit path args sessionEnv = rawBracket $ do
-  getSize >>= writeX . Handshake True sessionEnv path args
-  setResizeHandler (writeX . Resize)
+ptyInit :: (Member Process r, Member TTY r) => FilePath -> Args -> Sem r () -> Maybe Environment -> Sem r ()
+ptyInit path args go sessionEnv = getSize >>= writeX . Handshake True sessionEnv path args >> setResizeHandler (writeX . Resize) >> rawBracket go
 
-procInit :: (Member Process r) => FilePath -> Args -> Maybe Environment -> Sem r ()
-procInit path args sesionEnv = do
-  writeX $ Handshake False sesionEnv path args Nothing
+procInit :: (Member Process r) => FilePath -> Args -> Sem r () -> Maybe Environment -> Sem r ()
+procInit path args go sesionEnv = writeX (Handshake False sesionEnv path args Nothing) >> go
 
-init :: (Member Process r, Member TTY r) => Bool -> FilePath -> Args -> Maybe Environment -> Sem r ()
+init :: (Member Process r, Member TTY r) => Bool -> FilePath -> Args -> Sem r () -> Maybe Environment -> Sem r ()
 init = bool procInit ptyInit
 
 getSessionEnv :: (Member User r) => Bool -> Sem r (Maybe Environment)
@@ -54,12 +51,12 @@ exitGracefully = do
   exit code
 
 iosh :: (Member (Scoped ProcessParams Process) r, Member Async r, Member TTY r, Member User r, Member Decoder r, Member Fail r, Member Exit r) => Options -> Sem r ()
-iosh (Options pty inheritEnv tunProcCmd path args) =
-  exec (TunnelProcess tunProcCmd) $ do
-    getSessionEnv inheritEnv >>= init pty path args
-    async_ ttyOutputSender
-    serverMessageReceiver
-    exitGracefully
+iosh (Options pty inheritEnv tunProcCmd path args) = exec (TunnelProcess tunProcCmd) $ getSessionEnv inheritEnv >>= init pty path args go
+  where
+    go = do
+      async_ ttyOutputSender
+      serverMessageReceiver
+      exitGracefully
 
 main :: IO ()
 main = execOptionsParser >>= run
