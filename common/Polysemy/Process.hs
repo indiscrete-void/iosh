@@ -26,6 +26,7 @@ import IOSH.Protocol
 import Pipes hiding (Effect)
 import Pipes.Prelude qualified as P
 import Polysemy
+import Polysemy.Fail
 import Polysemy.Resource
 import Polysemy.Scoped
 import Polysemy.Serialize
@@ -58,7 +59,7 @@ errReader = P.repeatM readErr >-> justYielder
 writer :: (Member Process r) => Consumer ByteString (Sem r) ()
 writer = P.mapM_ write
 
-xReader :: (Member Process r, Member Decoder r, Serialize a) => Producer a (Sem r) ()
+xReader :: (Member Process r, Member Decoder r, Serialize a, Member Fail r) => Producer a (Sem r) ()
 xReader = reader >-> decoder
 
 xWriter :: (Member Process r, Serialize a) => Consumer a (Sem r) ()

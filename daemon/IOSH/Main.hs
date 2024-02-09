@@ -35,7 +35,7 @@ procIOSHD maybeEnv path args =
     result <- race (race procOutputSender procErrorSender) procClientMessageReceiver
     when (isLeft result) $ Proc.wait >>= outputX . Termination
 
-ptyClientMessageReceiver :: (Member ByteInput r, Member PTY r, Member Decoder r) => Sem r ()
+ptyClientMessageReceiver :: (Member ByteInput r, Member PTY r, Member Decoder r, Member Fail r) => Sem r ()
 ptyClientMessageReceiver = runEffect $ for xInputter go
   where
     go (Input str) = lift $ PTY.write str
@@ -44,7 +44,7 @@ ptyClientMessageReceiver = runEffect $ for xInputter go
 ptyOutputSender :: (Member ByteOutput r, Member PTY r) => Sem r ()
 ptyOutputSender = runEffect $ PTY.reader >-> P.map Output >-> xOutputter
 
-ptyIOSHD :: (Member ByteInput r, Member ByteOutput r, Member Race r, Member (Scoped PTYParams PTY) r, Member Decoder r) => Maybe Environment -> FilePath -> Args -> Maybe Size -> Sem r ()
+ptyIOSHD :: (Member ByteInput r, Member ByteOutput r, Member Race r, Member (Scoped PTYParams PTY) r, Member Decoder r, Member Fail r) => Maybe Environment -> FilePath -> Args -> Maybe Size -> Sem r ()
 ptyIOSHD maybeEnv path args maybeSize =
   let size = fromMaybe (0, 0) maybeSize
    in PTY.exec (PTYParams maybeEnv path args size) $ do

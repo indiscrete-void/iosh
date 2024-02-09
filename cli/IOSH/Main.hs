@@ -22,7 +22,7 @@ async_ = void . async
 rawBracket :: (Member TTY r) => Sem r a -> Sem r a
 rawBracket m = attributeBracket $ setRawAttributes >> m
 
-serverMessageReceiver :: (Member Process r, Member Decoder r, Member User r) => Sem r ()
+serverMessageReceiver :: (Member Process r, Member Decoder r, Member User r, Member Fail r) => Sem r ()
 serverMessageReceiver = runEffect $ for xReader go
   where
     go (Output str) = lift $ write str
@@ -32,20 +32,20 @@ serverMessageReceiver = runEffect $ for xReader go
 ttyOutputSender :: (Member Process r, Member User r) => Sem r ()
 ttyOutputSender = runEffect $ reader >-> P.map Input >-> xWriter
 
-ptyIOSH :: (Member Process r, Member Decoder r, Member TTY r, Member Async r, Member User r) => Maybe Environment -> FilePath -> Args -> Sem r ()
+ptyIOSH :: (Member Process r, Member Decoder r, Member TTY r, Member Async r, Member User r, Member Fail r) => Maybe Environment -> FilePath -> Args -> Sem r ()
 ptyIOSH maybeEnv path args = rawBracket $ do
   getSize >>= writeX . Handshake True maybeEnv path args
   setResizeHandler (writeX . Resize)
   async_ ttyOutputSender
   serverMessageReceiver
 
-procIOSH :: (Member Process r, Member Decoder r, Member Async r, Member User r) => Maybe Environment -> FilePath -> Args -> Sem r ()
+procIOSH :: (Member Process r, Member Decoder r, Member Async r, Member User r, Member Fail r) => Maybe Environment -> FilePath -> Args -> Sem r ()
 procIOSH maybeEnv path args = do
   writeX $ Handshake False maybeEnv path args Nothing
   async_ ttyOutputSender
   serverMessageReceiver
 
-iosh :: (Member (Scoped ProcessParams Process) r, Member Async r, Member TTY r, Member User r, Member Decoder r) => Options -> Sem r ()
+iosh :: (Member (Scoped ProcessParams Process) r, Member Async r, Member TTY r, Member User r, Member Decoder r, Member Fail r) => Options -> Sem r ()
 iosh (Options pty inheritEnv tunProcCmd path args) =
   exec (TunnelProcess tunProcCmd) $ do
     maybeEnv <- bool (pure Nothing) (Just <$> getEnv) inheritEnv

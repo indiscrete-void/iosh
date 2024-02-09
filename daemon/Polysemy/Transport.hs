@@ -39,7 +39,7 @@ inputter = P.repeatM input >-> justYielder
 outputter :: (Member (Output a) r) => Consumer a (Sem r) ()
 outputter = P.mapM_ output
 
-xInputter :: (Member ByteInput r, Member Decoder r, Serialize a) => Producer a (Sem r) ()
+xInputter :: (Member ByteInput r, Member Decoder r, Serialize a, Member Fail r) => Producer a (Sem r) ()
 xInputter = inputter >-> decoder
 
 xOutputter :: (Member ByteOutput r, Serialize a) => Consumer a (Sem r) ()
