@@ -3,7 +3,6 @@ module Polysemy.User
     read,
     write,
     writeErr,
-    exit,
     getEnv,
     reader,
     userToIO,
@@ -17,7 +16,6 @@ import Pipes hiding (Effect, embed)
 import Pipes.Prelude qualified as P
 import Polysemy
 import System.Environment hiding (getEnv)
-import System.Exit
 import System.Posix.ByteString hiding (getEnv, getEnvironment)
 import Prelude hiding (read)
 
@@ -27,7 +25,6 @@ data User m a where
   Read :: User m (Maybe ByteString)
   Write :: ByteString -> User m ()
   WriteErr :: ByteString -> User m ()
-  Exit :: ExitCode -> User m () -- exit >> m = exit
 
 makeSem ''User
 
@@ -40,4 +37,3 @@ userToIO i o e = interpret $ \case
   Read -> embed $ eofToNothing <$> fdRead i 8192
   (Write str) -> embed . void $ fdWrite o str
   (WriteErr str) -> embed . void $ fdWrite e str
-  (Exit code) -> embed $ exitWith code

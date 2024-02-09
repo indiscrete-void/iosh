@@ -7,6 +7,7 @@ import Pipes
 import Pipes.Prelude qualified as P
 import Polysemy hiding (run)
 import Polysemy.Conc hiding (Scoped)
+import Polysemy.Exit
 import Polysemy.Fail
 import Polysemy.PTY (PTY, PTYParams (..), scopedPTYToIOFinal)
 import Polysemy.PTY qualified as PTY
@@ -51,12 +52,14 @@ ptyIOSHD maybeEnv path args maybeSize =
         result <- race ptyOutputSender ptyClientMessageReceiver
         when (isLeft result) $ PTY.wait >>= outputX . Termination
 
-ioshd :: (Member ByteInput r, Member ByteOutput r, Member Fail r, Member Race r, Member (Scoped PTYParams PTY) r, Member (Scoped ProcessParams Process) r, Member Decoder r) => Sem r ()
+ioshd :: (Member ByteInput r, Member ByteOutput r, Member Fail r, Member Race r, Member (Scoped PTYParams PTY) r, Member (Scoped ProcessParams Process) r, Member Decoder r, Member Exit r) => Sem r ()
 ioshd = do
   (Handshake pty maybeEnv path args maybeSize) <- inputX
   if pty
     then ptyIOSHD maybeEnv path args maybeSize
     else procIOSHD maybeEnv path args
+  (Termination code) <- inputX
+  exit code
 
 main :: IO ()
 main = mapM_ disableBuffering [stdin, stdout] >> run

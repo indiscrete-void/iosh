@@ -6,6 +6,7 @@ module IOSH.Protocol
   ( Handshake (..),
     ClientMessage (..),
     ServerMessage (..),
+    Termination (..),
     Environment,
     Args,
     Size,
@@ -43,7 +44,11 @@ type ServerMessage :: Type
 data ServerMessage where
   Output :: ByteString -> ServerMessage
   Error :: ByteString -> ServerMessage
-  Termination :: ExitCode -> ServerMessage
+  deriving stock (Generic)
+
+type Termination :: Type
+data Termination where
+  Termination :: ExitCode -> Termination
   deriving stock (Generic)
 
 instance Serialize ExitCode
@@ -53,3 +58,5 @@ instance Serialize ClientMessage
 instance Serialize ServerMessage
 
 instance Serialize Handshake
+
+instance Serialize Termination

@@ -29,6 +29,7 @@ library common
     exposed-modules:
         Polysemy.Serialize
         Polysemy.Process
+        Polysemy.Exit
         IOSH.Maybe
         IOSH.Protocol
         IOSH.IO

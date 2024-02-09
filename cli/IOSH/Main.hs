@@ -7,6 +7,7 @@ import Pipes hiding (await)
 import Pipes.Prelude qualified as P
 import Polysemy hiding (run)
 import Polysemy.Async
+import Polysemy.Exit
 import Polysemy.Fail
 import Polysemy.Process hiding (reader, write)
 import Polysemy.Scoped
@@ -28,7 +29,6 @@ serverMessageReceiver = runEffect $ for xReader go
   where
     go (Output str) = lift $ write str
     go (Error str) = lift $ writeErr str
-    go (Termination code) = lift $ exit (traceShowId code)
 
 ttyOutputSender :: (Member Process r, Member User r) => Sem r ()
 ttyOutputSender = runEffect $ reader >-> P.map Input >-> xWriter
@@ -48,12 +48,19 @@ init = bool procInit ptyInit
 getSessionEnv :: (Member User r) => Bool -> Sem r (Maybe Environment)
 getSessionEnv = bool (pure Nothing) (Just <$> getEnv)
 
-iosh :: (Member (Scoped ProcessParams Process) r, Member Async r, Member TTY r, Member User r, Member Decoder r, Member Fail r) => Options -> Sem r ()
+exitGracefully :: (Member Exit r, Member Decoder r, Member Fail r, Member Process r) => Sem r ()
+exitGracefully = do
+  msg@(Termination code) <- readX
+  writeX msg
+  exit code
+
+iosh :: (Member (Scoped ProcessParams Process) r, Member Async r, Member TTY r, Member User r, Member Decoder r, Member Fail r, Member Exit r) => Options -> Sem r ()
 iosh (Options pty inheritEnv tunProcCmd path args) =
   exec (TunnelProcess tunProcCmd) $ do
     getSessionEnv inheritEnv >>= init pty path args
     async_ ttyOutputSender
     serverMessageReceiver
+    exitGracefully
 
 main :: IO ()
 main = execOptionsParser >>= run
@@ -64,6 +71,7 @@ main = execOptionsParser >>= run
         . asyncToIOFinal
         . scopedProcToIOFinal
         . embedToFinal @IO
+        . exitToIO
         . userToIO stdInput stdOutput stdError
         . failToEmbed @IO
         . runDecoder
