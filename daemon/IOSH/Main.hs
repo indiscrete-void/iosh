@@ -55,7 +55,7 @@ ptyOutputSender = runEffect $ PTY.reader >-> P.map Output >-> xOutputter
 
 ptyIOSHD :: (Member ByteInput r, Member ByteOutput r, Member Race r, Member (Scoped PTYParams PTY) r, Member Decoder r, Member Fail r, Member Exit r, Member Async r) => Maybe Environment -> FilePath -> Args -> Maybe Size -> Sem r ()
 ptyIOSHD sessionEnv path args maybeSize =
-  let size = fromMaybe (0, 0) maybeSize
+  let size = fromMaybe (80, 24) maybeSize
    in PTY.exec (PTYParams sessionEnv path args size) $ do
         ptyClientMessageReceiverAsync <- async ptyClientMessageReceiver
         result <- race ptyOutputSender (await ptyClientMessageReceiverAsync)
