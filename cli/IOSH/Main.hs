@@ -1,6 +1,5 @@
 import Control.Monad
 import Data.Bool
-import Debug.Trace
 import IOSH.Options
 import IOSH.Protocol
 import Pipes hiding (await)
