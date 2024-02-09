@@ -6,10 +6,10 @@ module IOSH.Protocol
   ( Handshake (..),
     ClientMessage (..),
     ServerMessage (..),
-    Termination (..),
     Environment,
     Args,
     Size,
+    failTermination,
   )
 where
 
@@ -18,6 +18,8 @@ import Data.Int
 import Data.Kind
 import Data.Serialize
 import GHC.Generics
+import Polysemy
+import Polysemy.Fail
 import System.Exit
 
 type Environment :: Type
@@ -38,18 +40,18 @@ type ClientMessage :: Type
 data ClientMessage where
   Resize :: Size -> ClientMessage
   Input :: ByteString -> ClientMessage
+  ClientTermination :: ExitCode -> ClientMessage
   deriving stock (Generic)
 
 type ServerMessage :: Type
 data ServerMessage where
   Output :: ByteString -> ServerMessage
   Error :: ByteString -> ServerMessage
+  ServerTermination :: ExitCode -> ServerMessage
   deriving stock (Generic)
 
-type Termination :: Type
-data Termination where
-  Termination :: {code :: ExitCode} -> Termination
-  deriving stock (Generic)
+failTermination :: (Member Fail r) => Sem r a
+failTermination = fail "session ended before termination procedure was done"
 
 instance Serialize ExitCode
 
@@ -58,5 +60,3 @@ instance Serialize ClientMessage
 instance Serialize ServerMessage
 
 instance Serialize Handshake
-
-instance Serialize Termination
