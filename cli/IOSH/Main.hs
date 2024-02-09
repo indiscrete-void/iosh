@@ -13,7 +13,6 @@ import Polysemy.Scoped
 import Polysemy.Serialize
 import Polysemy.TTY
 import Polysemy.User
-import System.Exit
 import System.IO
 import System.Posix.IO
 import Prelude hiding (init)
@@ -55,7 +54,6 @@ iosh (Options pty inheritEnv tunProcCmd path args) =
     getSessionEnv inheritEnv >>= init pty path args
     async_ ttyOutputSender
     serverMessageReceiver
-    exit (ExitFailure 74)
 
 main :: IO ()
 main = execOptionsParser >>= run
