@@ -48,7 +48,7 @@ data ServerMessage where
 
 type Termination :: Type
 data Termination where
-  Termination :: ExitCode -> Termination
+  Termination :: {code :: ExitCode} -> Termination
   deriving stock (Generic)
 
 instance Serialize ExitCode

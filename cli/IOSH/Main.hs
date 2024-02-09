@@ -1,3 +1,4 @@
+import Control.Arrow
 import Control.Monad
 import Data.Bool
 import IOSH.Options
@@ -44,11 +45,10 @@ init = bool procInit ptyInit
 getSessionEnv :: (Member User r) => Bool -> Sem r (Maybe Environment)
 getSessionEnv = bool (pure Nothing) (Just <$> getEnv)
 
-exitGracefully :: (Member Exit r, Member Decoder r, Member Fail r, Member Process r) => Sem r ()
-exitGracefully = do
-  msg@(Termination code) <- readX
-  writeX msg
-  exit code
+exitGracefully :: forall r. (Member Exit r, Member Decoder r, Member Fail r, Member Process r) => Sem r ()
+exitGracefully = readX >>= both writeX (exit . code)
+  where
+    both ka kb = runKleisli . void $ Kleisli ka &&& Kleisli kb
 
 iosh :: (Member (Scoped ProcessParams Process) r, Member Async r, Member TTY r, Member User r, Member Decoder r, Member Fail r, Member Exit r) => Options -> Sem r ()
 iosh (Options pty inheritEnv tunProcCmd path args) = exec (TunnelProcess tunProcCmd) $ getSessionEnv inheritEnv >>= init pty path args go

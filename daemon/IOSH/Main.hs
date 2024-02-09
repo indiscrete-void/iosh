@@ -58,8 +58,7 @@ ioshd = do
   if pty
     then ptyIOSHD sessionEnv path args maybeSize
     else procIOSHD sessionEnv path args
-  (Termination code) <- inputX
-  exit code
+  inputX >>= exit . code
 
 main :: IO ()
 main = mapM_ disableBuffering [stdin, stdout] >> run
