@@ -18,6 +18,7 @@ import Data.ByteString
 import Data.Kind
 import Data.Serialize
 import IOSH.Maybe
+import IOSH.Protocol hiding (Input, Output)
 import Pipes hiding (embed)
 import Pipes.Prelude qualified as P
 import Polysemy
@@ -46,7 +47,7 @@ xOutputter :: (Member ByteOutput r, Serialize a) => Consumer a (Sem r) ()
 xOutputter = P.map encode >-> outputter
 
 inputX :: (Member ByteInput r, Member Decoder r, Member Fail r, Serialize a) => Sem r a
-inputX = P.head xInputter >>= maybe (fail "end of pipe reached") pure
+inputX = P.head xInputter >>= maybe failEOF pure
 
 outputX :: (Member ByteOutput r, Serialize a) => a -> Sem r ()
 outputX a = runEffect $ yield a >-> xOutputter

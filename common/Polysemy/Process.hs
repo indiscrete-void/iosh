@@ -67,7 +67,7 @@ xWriter :: (Member Process r, Serialize a) => Consumer a (Sem r) ()
 xWriter = P.map encode >-> writer
 
 readX :: (Member Process r, Member Decoder r, Member Fail r, Serialize a) => Sem r a
-readX = P.head xReader >>= maybe (fail "end of pipe reached") pure
+readX = P.head xReader >>= maybe failEOF pure
 
 writeX :: (Member Process r, Serialize a) => a -> Sem r ()
 writeX a = runEffect $ yield a >-> xWriter

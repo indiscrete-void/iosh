@@ -10,6 +10,7 @@ module IOSH.Protocol
     Args,
     Size,
     failTermination,
+    failEOF,
   )
 where
 
@@ -52,6 +53,9 @@ data ServerMessage where
 
 failTermination :: (Member Fail r) => Sem r a
 failTermination = fail "session ended before termination procedure was done"
+
+failEOF :: (Member Fail r) => Sem r a
+failEOF = fail "end of pipe reached"
 
 instance Serialize ExitCode
 
