@@ -72,6 +72,7 @@ main = mapM_ disableBuffering [stdin, stdout] >> run
         . scopedProcToIOFinal
         . inputToIO stdin
         . outputToIO stdout
+        . exitToIO
         . failToEmbed @IO
         . runDecoder
         $ ioshd
