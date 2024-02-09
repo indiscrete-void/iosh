@@ -12,9 +12,11 @@ import Polysemy.PTY (PTY, PTYParams (..), scopedPTYToIOFinal)
 import Polysemy.PTY qualified as PTY
 import Polysemy.Process (Process, ProcessParams (..), scopedProcToIOFinal)
 import Polysemy.Process qualified as Proc
+import Polysemy.Resource
 import Polysemy.Scoped
 import Polysemy.Serialize
 import Polysemy.Transport
+import System.Exit
 import System.IO
 
 procClientMessageReceiver :: (Member ByteInput r, Member Process r, Member Decoder r, Member Fail r) => Sem r ()
@@ -51,18 +53,22 @@ ptyIOSH maybeEnv path args maybeSize =
         result <- race ptyOutputSender ptyClientMessageReceiver
         when (isLeft result) $ PTY.wait >>= outputX . Termination
 
-iosh :: (Member ByteInput r, Member ByteOutput r, Member Fail r, Member Race r, Member (Scoped PTYParams PTY) r, Member (Scoped ProcessParams Process) r, Member Decoder r) => Sem r ()
+iosh :: (Member ByteInput r, Member ByteOutput r, Member Fail r, Member Race r, Member (Scoped PTYParams PTY) r, Member (Scoped ProcessParams Process) r, Member Decoder r, Member Resource r) => Sem r ()
 iosh = do
   (Handshake pty maybeEnv path args maybeSize) <- inputX
-  if pty
-    then ptyIOSH maybeEnv path args maybeSize
-    else procIOSH maybeEnv path args
+  onException
+    ( if pty
+        then ptyIOSH maybeEnv path args maybeSize
+        else procIOSH maybeEnv path args
+    )
+    (outputX $ Termination (ExitFailure 1))
 
 main :: IO ()
 main = mapM_ disableBuffering [stdin, stdout] >> run
   where
     run =
       runFinal
+        . resourceToIOFinal
         . interpretRace
         . embedToFinal @IO
         . scopedPTYToIOFinal
