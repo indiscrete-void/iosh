@@ -27,6 +27,7 @@ common default
 library common
     import: default
     exposed-modules:
+        Polysemy.Transport
         Polysemy.Serialize
         Polysemy.Process
         Polysemy.Exit
@@ -67,7 +68,6 @@ executable ioshd
     main-is: IOSH/Main.hs
     hs-source-dirs: daemon
     other-modules:
-        Polysemy.Transport
         Polysemy.PTY
 
     build-depends:
@@ -80,4 +80,3 @@ executable ioshd
         common,
         process ^>=1.6.18.0,
         posix-pty ^>=0.2.2,
-        cereal ^>=0.5.8.3,
