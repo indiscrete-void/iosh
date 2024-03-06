@@ -3,6 +3,7 @@ name: iosh
 version: 0.1.0.0
 maintainer: indiscrete.void@gmail.com
 author: indiscrete_void
+license-file: LICENSE
 
 flag pedantic
 
