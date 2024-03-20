@@ -18,9 +18,6 @@ import System.IO
 import System.Posix.IO
 import Prelude hiding (init)
 
-rawBracket :: (Member TTY r) => Sem r a -> Sem r a
-rawBracket m = attributeBracket $ setRawAttributes >> m
-
 serverMessageReceiver :: (Member Process r, Member Decoder r, Member User r, Member Fail r, Member Exit r) => Sem r ()
 serverMessageReceiver = runEffect $ for xReader go
   where
