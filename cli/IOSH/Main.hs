@@ -6,6 +6,7 @@ import Pipes hiding (await)
 import Pipes.Prelude qualified as P
 import Polysemy hiding (run)
 import Polysemy.Async
+import Polysemy.Async_
 import Polysemy.Exit
 import Polysemy.Fail
 import Polysemy.Process hiding (reader, write)
@@ -16,9 +17,6 @@ import Polysemy.User
 import System.IO
 import System.Posix.IO
 import Prelude hiding (init)
-
-async_ :: (Member Async r) => Sem r a -> Sem r ()
-async_ = void . async
 
 rawBracket :: (Member TTY r) => Sem r a -> Sem r a
 rawBracket m = attributeBracket $ setRawAttributes >> m

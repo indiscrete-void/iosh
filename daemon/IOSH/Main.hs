@@ -1,4 +1,3 @@
-import Control.Concurrent.Async qualified as Control.Concurrent
 import Control.Monad
 import Data.Either
 import Data.Maybe
@@ -8,6 +7,7 @@ import Pipes hiding (await)
 import Pipes.Prelude qualified as P
 import Polysemy hiding (run)
 import Polysemy.Async
+import Polysemy.Async_
 import Polysemy.Conc hiding (Scoped)
 import Polysemy.Exit
 import Polysemy.Fail
@@ -19,9 +19,6 @@ import Polysemy.Scoped
 import Polysemy.Serialize
 import Polysemy.Transport
 import System.IO
-
-await_ :: (Member Async r) => Control.Concurrent.Async a -> Sem r ()
-await_ = void . await
 
 procClientMessageReceiver :: (Member ByteInput r, Member Process r, Member Decoder r, Member Fail r, Member Exit r) => Sem r ()
 procClientMessageReceiver = runEffect $ for xInputter go
