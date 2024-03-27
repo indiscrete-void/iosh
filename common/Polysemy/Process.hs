@@ -62,8 +62,8 @@ procToIO :: (Member (Embed IO) r) => (Maybe Handle, Maybe Handle, Maybe Handle, 
 procToIO (i, o, e, ph) =
   waitToIO ph
     . (maybeInputToIO e . untag @'ErrorStream)
-    . (maybeInputToIO i . untag @'StandardStream)
-    . maybeOutputToIO o
+    . (maybeInputToIO o . untag @'StandardStream)
+    . maybeOutputToIO i
 
 maybeInputToIO :: (Member (Embed IO) r) => Maybe Handle -> InterpreterFor ByteInput r
 maybeInputToIO mh = interpret $ \case
