@@ -1,37 +1,24 @@
 module Polysemy.Process
-  ( Process (..),
-    ProcessParams (..),
+  ( ProcessParams (..),
+    ProcessEffects,
+    Process,
     exec,
     wait,
-    read,
-    readErr,
-    write,
-    reader,
-    errReader,
-    writer,
     scopedProcToIOFinal,
-    xWriter,
-    writeX,
-    readX,
-    xReader,
   )
 where
 
-import Data.ByteString (ByteString, hGetSome, hPut)
+import Control.Monad
 import Data.Kind
 import Data.Maybe
-import Data.Serialize
-import IOSH.IO
-import IOSH.Maybe
 import IOSH.Protocol
-import Pipes hiding (Effect)
-import Pipes.Prelude qualified as P
 import Polysemy
-import Polysemy.Fail
+import Polysemy.Bundle
 import Polysemy.Resource
 import Polysemy.Scoped
-import Polysemy.Serialize
-import System.Exit
+import Polysemy.Tagged
+import Polysemy.Transport
+import Polysemy.Wait
 import System.IO
 import System.Process
 import Prelude hiding (read)
@@ -39,55 +26,40 @@ import Prelude hiding (read)
 type ProcessParams :: Type
 data ProcessParams = InternalProcess (Maybe Environment) FilePath [String] | TunnelProcess String
 
+type ProcessEffects :: [Effect]
+type ProcessEffects = ByteOutput : Tagged 'StandardStream ByteInput : Tagged 'ErrorStream ByteInput : Wait : '[]
+
 type Process :: Effect
-data Process m a where
-  Wait :: Process m ExitCode
-  Read :: Process m (Maybe ByteString)
-  ReadErr :: Process m (Maybe ByteString)
-  Write :: ByteString -> Process m ()
+type Process = Bundle ProcessEffects
 
-exec :: (Member (Scoped ProcessParams Process) r) => ProcessParams -> InterpreterFor Process r
-exec = scoped
+bundleProcEffects :: (Member Process r) => InterpretersFor ProcessEffects r
+bundleProcEffects =
+  sendBundle @Wait @ProcessEffects
+    . sendBundle @(Tagged 'ErrorStream ByteInput) @ProcessEffects
+    . sendBundle @(Tagged 'StandardStream ByteInput) @ProcessEffects
+    . sendBundle @ByteOutput @ProcessEffects
 
-makeSem ''Process
-
-reader :: (Member Process r) => Producer ByteString (Sem r) ()
-reader = P.repeatM read >-> justYielder
-
-errReader :: (Member Process r) => Producer ByteString (Sem r) ()
-errReader = P.repeatM readErr >-> justYielder
-
-writer :: (Member Process r) => Consumer ByteString (Sem r) ()
-writer = P.mapM_ write
-
-xReader :: (Member Process r, Member Decoder r, Serialize a, Member Fail r) => Producer a (Sem r) ()
-xReader = reader >-> decoder
-
-xWriter :: (Member Process r, Serialize a) => Consumer a (Sem r) ()
-xWriter = P.map encode >-> writer
-
-readX :: (Member Process r, Member Decoder r, Member Fail r, Serialize a) => Sem r a
-readX = P.head xReader >>= maybe failEOF pure
-
-writeX :: (Member Process r, Serialize a) => a -> Sem r ()
-writeX a = runEffect $ yield a >-> xWriter
+exec :: (Member (Scoped ProcessParams Process) r) => ProcessParams -> InterpretersFor ProcessEffects r
+exec params = scoped @_ @Process params . bundleProcEffects . insertAt @4 @'[Process]
 
 scopedProcToIOFinal :: (Member (Final IO) r) => InterpreterFor (Scoped ProcessParams Process) r
-scopedProcToIOFinal =
-  interpretScoped
-    ( \params f -> resourceToIOFinal . bracket (openProc params) closeProc $
-        \hs -> embedFinal (disableProcBuffering hs) >> raise (f hs)
-    )
-    procToIO
+scopedProcToIOFinal = embedToFinal @IO . runScopedNew go . raiseUnder
+  where
+    go param = procParamsToIOFinal param . runBundle
+
+procParamsToIOFinal :: (Member (Final IO) r, Member (Embed IO) r) => ProcessParams -> InterpretersFor ProcessEffects r
+procParamsToIOFinal param sem = resourceToIOFinal $ bracket (openProc param) closeProc (raise . maybeProcToIOFinal)
   where
     openProc params = embedFinal $ createProcess (toCreateProcess params)
-    disableProcBuffering (i, o, e, _) = mapM_ disableBuffering (catMaybes [i, o, e])
-    procToIO :: (Member (Final IO) r) => (Maybe Handle, Maybe Handle, Maybe Handle, ProcessHandle) -> Process m x -> Sem r x
-    procToIO (i, o, e, ph) = \case
-      Wait -> embedFinal $ waitForProcess ph
-      Read -> embedFinal $ eofToNothing <$> (maybeFail "failed to get output stream" o >>= flip hGetSome 8192)
-      ReadErr -> embedFinal $ eofToNothing <$> (maybeFail "failed to get error stream" e >>= flip hGetSome 8192)
-      (Write str) -> embedFinal (maybeFail "failed to get input stream" i >>= flip hPut str)
     closeProc hs = embedFinal $ cleanupProcess hs
     toCreateProcess (InternalProcess sessionEnv path args) = (proc path args) {env = sessionEnv, std_in = CreatePipe, std_out = CreatePipe, std_err = CreatePipe}
     toCreateProcess (TunnelProcess cmd) = (shell cmd) {std_in = CreatePipe, std_out = CreatePipe}
+    maybeProcToIOFinal (Just i, Just o, Just e, ph) = procToIO i o e ph sem
+    maybeProcToIOFinal _ = embedFinal @IO $ fail "required process stream isn't piped"
+
+procToIO :: (Member (Embed IO) r) => Handle -> Handle -> Handle -> ProcessHandle -> InterpretersFor ProcessEffects r
+procToIO i o e ph =
+  waitToIO ph
+    . (inputToIO e . untag @'ErrorStream)
+    . (inputToIO i . untag @'StandardStream)
+    . outputToIO o

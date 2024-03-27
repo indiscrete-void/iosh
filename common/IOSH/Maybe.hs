@@ -1,4 +1,4 @@
-module IOSH.Maybe (maybeFail, eofToNothing, justYielder) where
+module IOSH.Maybe (maybeFail, eofToNothing, justYielder, whenMaybe) where
 
 import Data.ByteString
 import Pipes
@@ -12,6 +12,10 @@ eofToNothing str =
   if str == empty
     then Nothing
     else Just str
+
+whenMaybe :: (Applicative m) => Bool -> m (Maybe a) -> m (Maybe a)
+whenMaybe True m = m
+whenMaybe False _ = pure Nothing
 
 justYielder :: Pipe (Maybe a) a (Sem r) ()
 justYielder = await >>= maybe (pure ()) go

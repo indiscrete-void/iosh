@@ -1,5 +1,7 @@
 import Control.Monad
 import Data.Bool
+import Data.Kind
+import IOSH.Maybe
 import IOSH.Options
 import IOSH.Protocol
 import Pipes hiding (await)
@@ -9,39 +11,63 @@ import Polysemy.Async
 import Polysemy.Async_
 import Polysemy.Exit
 import Polysemy.Fail
-import Polysemy.Process hiding (reader, write)
+import Polysemy.Output hiding (Output)
+import Polysemy.Process
 import Polysemy.Scoped
 import Polysemy.Serialize
 import Polysemy.TTY
+import Polysemy.Tagged
+import Polysemy.Transport
+import Polysemy.Untag
 import Polysemy.User
+import Polysemy.Wait
 import System.IO
 import System.Posix.IO
 import Prelude hiding (init)
 
-serverMessageReceiver :: (Member Process r, Member Decoder r, Member User r, Member Fail r, Member Exit r) => Sem r ()
-serverMessageReceiver = runEffect $ for xReader go
+type Stream :: Type
+data Stream = User | Tunnel
+
+serverMessageReceiver :: (Member Decoder r, Member Fail r, Member Exit r, Member (Tagged 'User (Tagged 'StandardStream ByteOutput)) r, Member (Tagged 'User (Tagged 'ErrorStream ByteOutput)) r, Member (Tagged 'Tunnel ByteInput) r, Member (Tagged 'Tunnel ByteOutput) r) => Sem r ()
+serverMessageReceiver = tag @'Tunnel @ByteInput . tag @'Tunnel @ByteOutput . tag @'User @(Tagged 'StandardStream ByteOutput) . tag @'User @(Tagged 'ErrorStream ByteOutput) . runEffect $ for xInputter go
   where
-    go (Output str) = lift $ write str
-    go (Error str) = lift $ writeErr str
-    go (ServerTermination code) = lift $ writeX (ClientTermination code) >> exit code
+    go (Output str) = lift $ tag @'StandardStream @ByteOutput (output str)
+    go (Error str) = lift $ tag @'ErrorStream @ByteOutput (output str)
+    go (ServerTermination code) = lift $ outputX (ClientTermination code) >> exit code
 
-ttyOutputSender :: (Member Process r, Member User r) => Sem r ()
-ttyOutputSender = runEffect $ reader >-> P.map Input >-> xWriter
+ttyOutputSender :: (Member (Tagged 'User ByteInput) r, Member (Tagged 'Tunnel ByteOutput) r) => Sem r ()
+ttyOutputSender = tag @'User @ByteInput . tag @'Tunnel @ByteOutput . runEffect $ inputter >-> P.map Input >-> xOutputter
 
-ptyInit :: (Member Process r, Member TTY r) => FilePath -> Args -> Sem r () -> Maybe Environment -> Sem r ()
-ptyInit path args go sessionEnv = getSize >>= writeX . Handshake True sessionEnv path args >> setResizeHandler (writeX . Resize) >> rawBracket go
+init :: forall r. (Member TTY r, Member (Tagged 'Tunnel ByteOutput) r) => Bool -> FilePath -> Args -> Maybe Environment -> Sem r () -> Sem r ()
+init pty path args maybeEnv go = tag @'Tunnel @ByteOutput $ do
+  maybeSize <- whenMaybe pty getSize
+  outputX $ Handshake pty maybeEnv path args maybeSize
+  when pty $ setResizeHandler (outputX . Resize)
+  rawBracket (raise go)
 
-procInit :: (Member Process r) => FilePath -> Args -> Sem r () -> Maybe Environment -> Sem r ()
-procInit path args go sesionEnv = writeX (Handshake False sesionEnv path args Nothing) >> go
+runUser :: (Member (Tagged 'StandardStream ByteOutput) r, Member (Tagged 'ErrorStream ByteOutput) r, Member ByteInput r) => InterpretersFor (Tagged 'User ByteInput : Tagged 'User (Tagged 'ErrorStream ByteOutput) : Tagged 'User (Tagged 'StandardStream ByteOutput) : '[]) r
+runUser = untagged @'User @(Tagged 'StandardStream ByteOutput) . untagged @'User @(Tagged 'ErrorStream ByteOutput) . untagged @'User @ByteInput
 
-init :: (Member Process r, Member TTY r) => Bool -> FilePath -> Args -> Sem r () -> Maybe Environment -> Sem r ()
-init = bool procInit ptyInit
+runTunnel :: forall r. (Member (Scoped ProcessParams Process) r) => String -> InterpretersFor (Tagged 'Tunnel ByteInput : Tagged 'Tunnel ByteOutput : Wait : '[]) r
+runTunnel tunProcCmd = exec (TunnelProcess tunProcCmd) . untag @'Tunnel @ByteOutput . retag @'Tunnel @'StandardStream @ByteInput . raise2Under @(Tagged 'StandardStream ByteInput) . raise2Under @(Tagged 'ErrorStream ByteInput)
 
-getSessionEnv :: (Member User r) => Bool -> Sem r (Maybe Environment)
-getSessionEnv = bool (pure Nothing) (Just <$> getEnv)
-
-iosh :: (Member (Scoped ProcessParams Process) r, Member Async r, Member TTY r, Member User r, Member Decoder r, Member Fail r, Member Exit r) => Options -> Sem r ()
-iosh (Options pty inheritEnv tunProcCmd path args) = exec (TunnelProcess tunProcCmd) $ getSessionEnv inheritEnv >>= init pty path args (async_ ttyOutputSender >> serverMessageReceiver) >> failTermination
+iosh ::
+  ( Member Async r,
+    Members User r,
+    Member Decoder r,
+    Member Fail r,
+    Member Exit r,
+    Member TTY r,
+    Member (Scoped ProcessParams Process) r
+  ) =>
+  Options ->
+  Sem r ()
+iosh (Options pty inheritEnv tunProcCmd path args) = runUser . runTunnel tunProcCmd $ do
+  maybeEnv <- whenMaybe inheritEnv (Just <$> getEnv)
+  init pty path args maybeEnv $ do
+    async_ ttyOutputSender
+    serverMessageReceiver
+  failTermination
 
 main :: IO ()
 main = execOptionsParser >>= run
@@ -52,8 +78,8 @@ main = execOptionsParser >>= run
         . asyncToIOFinal
         . scopedProcToIOFinal
         . embedToFinal @IO
+        . userToIO stdin stdout stderr
         . exitToIO
-        . userToIO stdInput stdOutput stdError
         . failToEmbed @IO
         . runDecoder
         . iosh
