@@ -11,9 +11,12 @@ where
 import Control.Monad
 import Data.Kind
 import Data.Maybe
-import IOSH.Protocol
+import IOSH.Maybe
+import IOSH.Protocol (Environment)
 import Polysemy
 import Polysemy.Bundle
+import Polysemy.Input
+import Polysemy.Output
 import Polysemy.Resource
 import Polysemy.Scoped
 import Polysemy.Tagged
@@ -48,18 +51,31 @@ scopedProcToIOFinal = embedToFinal @IO . runScopedNew go . raiseUnder
     go param = procParamsToIOFinal param . runBundle
 
 procParamsToIOFinal :: (Member (Final IO) r, Member (Embed IO) r) => ProcessParams -> InterpretersFor ProcessEffects r
-procParamsToIOFinal param sem = resourceToIOFinal $ bracket (openProc param) closeProc (raise . maybeProcToIOFinal)
+procParamsToIOFinal param sem = resourceToIOFinal $ bracket (openProc param) closeProc (raise . flip procToIO sem)
   where
     openProc params = embedFinal $ createProcess (toCreateProcess params)
     closeProc hs = embedFinal $ cleanupProcess hs
     toCreateProcess (InternalProcess sessionEnv path args) = (proc path args) {env = sessionEnv, std_in = CreatePipe, std_out = CreatePipe, std_err = CreatePipe}
     toCreateProcess (TunnelProcess cmd) = (shell cmd) {std_in = CreatePipe, std_out = CreatePipe}
-    maybeProcToIOFinal (Just i, Just o, Just e, ph) = procToIO i o e ph sem
-    maybeProcToIOFinal _ = embedFinal @IO $ fail "required process stream isn't piped"
 
-procToIO :: (Member (Embed IO) r) => Handle -> Handle -> Handle -> ProcessHandle -> InterpretersFor ProcessEffects r
-procToIO i o e ph =
+procToIO :: (Member (Embed IO) r) => (Maybe Handle, Maybe Handle, Maybe Handle, ProcessHandle) -> InterpretersFor ProcessEffects r
+procToIO (i, o, e, ph) =
   waitToIO ph
-    . (inputToIO e . untag @'ErrorStream)
-    . (inputToIO i . untag @'StandardStream)
-    . outputToIO o
+    . (maybeInputToIO e . untag @'ErrorStream)
+    . (maybeInputToIO i . untag @'StandardStream)
+    . maybeOutputToIO o
+
+maybeInputToIO :: (Member (Embed IO) r) => Maybe Handle -> InterpreterFor ByteInput r
+maybeInputToIO mh = interpret $ \case
+  Input -> do
+    h <- unmaybeHandle @IO mh
+    inputToIO h input
+
+maybeOutputToIO :: (Member (Embed IO) r) => Maybe Handle -> InterpreterFor ByteOutput r
+maybeOutputToIO mh = interpret $ \case
+  Output str -> do
+    h <- unmaybeHandle @IO mh
+    outputToIO h $ output str
+
+unmaybeHandle :: forall m r a. (MonadFail m, Member (Embed m) r) => Maybe a -> Sem r a
+unmaybeHandle = embed @m . maybeFail "required process stream isn't piped"
