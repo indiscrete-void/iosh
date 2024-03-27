@@ -52,12 +52,12 @@ aptOutputSender pty =
     outputSender :: forall r. (Member ByteInput r, Member ByteOutput r) => Sem r ()
     outputSender = runEffect $ inputter >-> P.map Output >-> xOutputter
 
-proveNoneOf :: forall e r a. (Member Fail r) => Sem (e : r) a -> Sem r a
-proveNoneOf = interpretH @e (const $ fail "unexpected effect in Sem")
+proveNo :: forall e r a. (Member Fail r) => Sem (e : r) a -> Sem r a
+proveNo = interpretH @e (const $ fail "unexpected effect in Sem")
 
 aptExec :: (Member (Scoped PTYParams PTY) r, Member (Scoped ProcessParams Proc.Process) r, Member Fail r) => Handshake -> InterpretersFor (Append PTYEffects ProcessEffects) r
-aptExec (Handshake False sessionEnv path args Nothing) go = Proc.exec (InternalProcess sessionEnv path args) . proveNoneOf @ByteOutput . proveNoneOf @ByteInput . proveNoneOf @Resize $ subsume_ go
-aptExec (Handshake True sessionEnv path args maybeSize) go = PTY.exec (PTYParams sessionEnv path args maybeSizeOrDefault) . proveNoneOf @(Tagged 'ErrorStream ByteInput) . proveNoneOf @(Tagged 'StandardStream ByteInput) . proveNoneOf @ByteOutput $ subsume_ go
+aptExec (Handshake False sessionEnv path args Nothing) go = Proc.exec (InternalProcess sessionEnv path args) . proveNo @ByteOutput . proveNo @ByteInput . proveNo @Resize $ subsume_ go
+aptExec (Handshake True sessionEnv path args maybeSize) go = PTY.exec (PTYParams sessionEnv path args maybeSizeOrDefault) . proveNo @(Tagged 'ErrorStream ByteInput) . proveNo @(Tagged 'StandardStream ByteInput) . proveNo @ByteOutput $ subsume_ go
   where
     maybeSizeOrDefault = fromMaybe (80, 24) maybeSize
 aptExec (Handshake False _ _ _ (Just _)) _ = fail "cannot apply provided terminal size in non-pty session"
