@@ -30,17 +30,17 @@ import System.IO
 type Stream :: Type
 data Stream = Tunnel | Process
 
-aptClientMessageReceiver :: (Member Decoder r, Member Fail r, Member Exit r, Member (Tagged 'Tunnel ByteInput) r, Member (Tagged 'Process ByteOutput) r, Member Resize r) => Bool -> Sem r ()
-aptClientMessageReceiver pty = tag @'Process @ByteOutput clientMessageReceiver
+clientMessageReceiver :: (Member Decoder r, Member Fail r, Member Exit r, Member (Tagged 'Tunnel ByteInput) r, Member (Tagged 'Process ByteOutput) r, Member Resize r) => Bool -> Sem r ()
+clientMessageReceiver pty = tag @'Process @ByteOutput go
   where
-    clientMessageReceiver = tag @'Tunnel @ByteInput . runEffect $ for xInputter go
+    go = tag @'Tunnel @ByteInput . runEffect $ for xInputter handle
       where
-        go (Input str) = lift $ output str
-        go (IOSH.Resize size) = lift $ aptResize pty size
-        go (ClientTermination code) = lift $ exit code
+        handle (Input str) = lift $ output str
+        handle (IOSH.Resize size) = lift $ resize pty size
+        handle (ClientTermination code) = lift $ exit code
 
-aptOutputSender :: (Member Race r, Member (Tagged 'Tunnel ByteOutput) r, Member (Tagged 'Process (Tagged 'StandardStream ByteInput)) r, Member (Tagged 'Process (Tagged 'ErrorStream ByteInput)) r, Member (Tagged 'Process ByteInput) r) => Bool -> Sem r ()
-aptOutputSender pty =
+outputSender :: (Member Race r, Member (Tagged 'Tunnel ByteOutput) r, Member (Tagged 'Process (Tagged 'StandardStream ByteInput)) r, Member (Tagged 'Process (Tagged 'ErrorStream ByteInput)) r, Member (Tagged 'Process ByteInput) r) => Bool -> Sem r ()
+outputSender pty =
   tag @'Tunnel @ByteOutput $
     if pty
       then tag @'Process @ByteInput go
@@ -55,19 +55,19 @@ aptOutputSender pty =
 proveNo :: forall e r a. (Member Fail r) => Sem (e : r) a -> Sem r a
 proveNo = interpretH @e (const $ fail "unexpected effect in Sem")
 
-aptExec :: (Member (Scoped PTYParams PTY) r, Member (Scoped ProcessParams Proc.Process) r, Member Fail r) => Handshake -> InterpretersFor (Append PTYEffects ProcessEffects) r
-aptExec (Handshake False sessionEnv path args Nothing) m = go . proveNo @ByteOutput . proveNo @ByteInput . proveNo @Resize $ subsume_ m
+exec :: (Member (Scoped PTYParams PTY) r, Member (Scoped ProcessParams Proc.Process) r, Member Fail r) => Handshake -> InterpretersFor (Append PTYEffects ProcessEffects) r
+exec (Handshake False sessionEnv path args Nothing) m = go . proveNo @ByteOutput . proveNo @ByteInput . proveNo @Resize $ subsume_ m
   where
     go = Proc.exec (InternalProcess sessionEnv path args)
-aptExec (Handshake True sessionEnv path args maybeSize) m = go . proveNo @(Tagged 'ErrorStream ByteInput) . proveNo @(Tagged 'StandardStream ByteInput) . proveNo @ByteOutput $ subsume_ m
+exec (Handshake True sessionEnv path args maybeSize) m = go . proveNo @(Tagged 'ErrorStream ByteInput) . proveNo @(Tagged 'StandardStream ByteInput) . proveNo @ByteOutput $ subsume_ m
   where
     maybeSizeOrDefault = fromMaybe (80, 24) maybeSize
     go = PTY.exec (PTYParams sessionEnv path args maybeSizeOrDefault)
-aptExec (Handshake False _ _ _ (Just _)) _ = fail "cannot apply provided terminal size in non-pty session"
+exec (Handshake False _ _ _ (Just _)) _ = fail "cannot apply provided terminal size in non-pty session"
 
-aptResize :: (Member Fail r, Member Resize r) => Bool -> Size -> Sem r ()
-aptResize True size = PTY.resize size
-aptResize False _ = fail "cannot resize regular process"
+resize :: (Member Fail r, Member Resize r) => Bool -> Size -> Sem r ()
+resize True size = PTY.resize size
+resize False _ = fail "cannot resize regular process"
 
 sendExitCode :: (Member Wait r, Member ByteOutput r) => Sem r ()
 sendExitCode = wait >>= outputX . ServerTermination
@@ -76,7 +76,7 @@ runTunnel :: (Member ByteInput r, Member ByteOutput r) => InterpretersFor (Tagge
 runTunnel = untagged @'Tunnel @ByteOutput . untagged @'Tunnel @ByteInput
 
 runProcess :: (Member (Scoped PTYParams PTY) r, Member (Scoped ProcessParams Proc.Process) r, Member Fail r) => Handshake -> InterpretersFor (Tagged 'Process ByteOutput : Tagged 'Process ByteInput : Tagged 'Process (Tagged 'StandardStream ByteInput) : Tagged 'Process (Tagged 'ErrorStream ByteInput) : Resize : Wait : '[]) r
-runProcess hshake = aptExec hshake . subsume_ . untagPorcess
+runProcess hshake = exec hshake . subsume_ . untagPorcess
   where
     untagPorcess :: Sem (Tagged 'Process ByteOutput : Tagged 'Process ByteInput : Tagged 'Process (Tagged 'StandardStream ByteInput) : Tagged 'Process (Tagged 'ErrorStream ByteInput) : r) a -> Sem (ByteInput : ByteOutput : Tagged 'StandardStream ByteInput : Tagged 'ErrorStream ByteInput : r) a
     untagPorcess =
@@ -90,8 +90,8 @@ ioshd :: (Member Fail r, Member Race r, Member Decoder r, Member Exit r, Member 
 ioshd = do
   hshake@(Handshake pty _ _ _ _) <- inputX
   runTunnel . runProcess hshake $ do
-    clientMessageReceiverAsync <- async $ aptClientMessageReceiver pty
-    result <- race (aptOutputSender pty) (await clientMessageReceiverAsync)
+    clientMessageReceiverAsync <- async $ clientMessageReceiver pty
+    result <- race (outputSender pty) (await clientMessageReceiverAsync)
     when (isLeft result) $ sendExitCode >> await_ clientMessageReceiverAsync
   failTermination
 
