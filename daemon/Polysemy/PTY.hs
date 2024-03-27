@@ -57,16 +57,16 @@ ps2s = join bimap fromIntegral
 scopedPTYToIOFinal :: (Member (Final IO) r, Member (Embed IO) r) => InterpreterFor (Scoped PTYParams PTY) r
 scopedPTYToIOFinal = runScopedNew go
   where
-    go param = procParamsToIOFinal param . runBundle
+    go param = ptyParamsToIOFinal param . runBundle
 
-procParamsToIOFinal :: (Member (Final IO) r, Member (Embed IO) r) => PTYParams -> InterpretersFor PTYEffects r
-procParamsToIOFinal param sem = resourceToIOFinal $ bracket (open param) close (raise . flip (uncurry procToIO) sem)
+ptyParamsToIOFinal :: (Member (Final IO) r, Member (Embed IO) r) => PTYParams -> InterpretersFor PTYEffects r
+ptyParamsToIOFinal param sem = resourceToIOFinal $ bracket (open param) close (raise . flip (uncurry ptyToIO) sem)
   where
     open (PTYParams sessionEnv path args size) = embedFinal $ spawnWithPty sessionEnv True path args (ps2s size)
     close (pty, _) = embedFinal $ closePty pty
 
-procToIO :: (Member (Embed IO) r) => Pty -> ProcessHandle -> InterpretersFor PTYEffects r
-procToIO pty ph =
+ptyToIO :: (Member (Embed IO) r) => Pty -> ProcessHandle -> InterpretersFor PTYEffects r
+ptyToIO pty ph =
   waitToIO ph
     . outputToPtyIO pty
     . inputToPtyIO pty
