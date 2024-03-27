@@ -29,14 +29,18 @@ type Stream :: Type
 data Stream = User | Tunnel
 
 serverMessageReceiver :: (Member Decoder r, Member Fail r, Member Exit r, Member (Tagged 'User (Tagged 'StandardStream ByteOutput)) r, Member (Tagged 'User (Tagged 'ErrorStream ByteOutput)) r, Member (Tagged 'Tunnel ByteInput) r, Member (Tagged 'Tunnel ByteOutput) r) => Sem r ()
-serverMessageReceiver = tag @'Tunnel @ByteInput . tag @'Tunnel @ByteOutput . tag @'User @(Tagged 'StandardStream ByteOutput) . tag @'User @(Tagged 'ErrorStream ByteOutput) . runEffect $ for xInputter go
+serverMessageReceiver = tag @'Tunnel @ByteInput . tag @'Tunnel @ByteOutput . tag @'User @(Tagged 'StandardStream ByteOutput) . tag @'User @(Tagged 'ErrorStream ByteOutput) . runEffect $ go
   where
-    go (Output str) = lift $ tag @'StandardStream @ByteOutput (output str)
-    go (Error str) = lift $ tag @'ErrorStream @ByteOutput (output str)
-    go (ServerTermination code) = lift $ outputX (ClientTermination code) >> exit code
+    go = for xInputter handle
+      where
+        handle (Output str) = lift $ tag @'StandardStream @ByteOutput (output str)
+        handle (Error str) = lift $ tag @'ErrorStream @ByteOutput (output str)
+        handle (ServerTermination code) = lift $ outputX (ClientTermination code) >> exit code
 
 ttyOutputSender :: (Member (Tagged 'User ByteInput) r, Member (Tagged 'Tunnel ByteOutput) r) => Sem r ()
-ttyOutputSender = tag @'User @ByteInput . tag @'Tunnel @ByteOutput . runEffect $ inputter >-> P.map Input >-> xOutputter
+ttyOutputSender = tag @'User @ByteInput . tag @'Tunnel @ByteOutput $ go
+  where
+    go = runEffect $ inputter >-> P.map Input >-> xOutputter
 
 init :: forall r. (Member TTY r, Member (Tagged 'Tunnel ByteOutput) r) => Bool -> FilePath -> Args -> Maybe Environment -> Sem r () -> Sem r ()
 init pty path args maybeEnv go = tag @'Tunnel @ByteOutput $ do

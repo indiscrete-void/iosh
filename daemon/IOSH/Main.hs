@@ -43,23 +43,26 @@ aptOutputSender :: (Member Race r, Member (Tagged 'Tunnel ByteOutput) r, Member 
 aptOutputSender pty =
   tag @'Tunnel @ByteOutput $
     if pty
-      then tag @'Process @ByteInput outputSender
+      then tag @'Process @ByteInput go
       else
         race_
-          (tag @'Process @(Tagged 'StandardStream ByteInput) . tag @'StandardStream @ByteInput $ outputSender)
-          (tag @'Process @(Tagged 'ErrorStream ByteInput) . tag @'ErrorStream @ByteInput $ outputSender)
+          (tag @'Process @(Tagged 'StandardStream ByteInput) . tag @'StandardStream @ByteInput $ go)
+          (tag @'Process @(Tagged 'ErrorStream ByteInput) . tag @'ErrorStream @ByteInput $ go)
   where
-    outputSender :: forall r. (Member ByteInput r, Member ByteOutput r) => Sem r ()
-    outputSender = runEffect $ inputter >-> P.map Output >-> xOutputter
+    go :: forall r. (Member ByteInput r, Member ByteOutput r) => Sem r ()
+    go = runEffect $ inputter >-> P.map Output >-> xOutputter
 
 proveNo :: forall e r a. (Member Fail r) => Sem (e : r) a -> Sem r a
 proveNo = interpretH @e (const $ fail "unexpected effect in Sem")
 
 aptExec :: (Member (Scoped PTYParams PTY) r, Member (Scoped ProcessParams Proc.Process) r, Member Fail r) => Handshake -> InterpretersFor (Append PTYEffects ProcessEffects) r
-aptExec (Handshake False sessionEnv path args Nothing) go = Proc.exec (InternalProcess sessionEnv path args) . proveNo @ByteOutput . proveNo @ByteInput . proveNo @Resize $ subsume_ go
-aptExec (Handshake True sessionEnv path args maybeSize) go = PTY.exec (PTYParams sessionEnv path args maybeSizeOrDefault) . proveNo @(Tagged 'ErrorStream ByteInput) . proveNo @(Tagged 'StandardStream ByteInput) . proveNo @ByteOutput $ subsume_ go
+aptExec (Handshake False sessionEnv path args Nothing) m = go . proveNo @ByteOutput . proveNo @ByteInput . proveNo @Resize $ subsume_ m
+  where
+    go = Proc.exec (InternalProcess sessionEnv path args)
+aptExec (Handshake True sessionEnv path args maybeSize) m = go . proveNo @(Tagged 'ErrorStream ByteInput) . proveNo @(Tagged 'StandardStream ByteInput) . proveNo @ByteOutput $ subsume_ m
   where
     maybeSizeOrDefault = fromMaybe (80, 24) maybeSize
+    go = PTY.exec (PTYParams sessionEnv path args maybeSizeOrDefault)
 aptExec (Handshake False _ _ _ (Just _)) _ = fail "cannot apply provided terminal size in non-pty session"
 
 aptResize :: (Member Fail r, Member Resize r) => Bool -> Size -> Sem r ()
