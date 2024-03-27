@@ -51,17 +51,7 @@ runUser = untagged @'User @(Tagged 'StandardStream ByteOutput) . untagged @'User
 runTunnel :: forall r. (Member (Scoped ProcessParams Process) r) => String -> InterpretersFor (Tagged 'Tunnel ByteInput : Tagged 'Tunnel ByteOutput : Wait : '[]) r
 runTunnel tunProcCmd = exec (TunnelProcess tunProcCmd) . untag @'Tunnel @ByteOutput . retag @'Tunnel @'StandardStream @ByteInput . raise2Under @(Tagged 'StandardStream ByteInput) . raise2Under @(Tagged 'ErrorStream ByteInput)
 
-iosh ::
-  ( Member Async r,
-    Members User r,
-    Member Decoder r,
-    Member Fail r,
-    Member Exit r,
-    Member TTY r,
-    Member (Scoped ProcessParams Process) r
-  ) =>
-  Options ->
-  Sem r ()
+iosh :: (Member Async r, Members User r, Member Decoder r, Member Fail r, Member Exit r, Member TTY r, Member (Scoped ProcessParams Process) r) => Options -> Sem r ()
 iosh (Options pty inheritEnv tunProcCmd path args) = runUser . runTunnel tunProcCmd $ do
   maybeEnv <- whenMaybe inheritEnv (Just <$> getEnv)
   init pty path args maybeEnv $ do

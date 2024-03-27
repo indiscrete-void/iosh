@@ -83,18 +83,7 @@ runProcess hshake = aptExec hshake . subsume_ . untagPorcess
         . untagged @'Process @ByteOutput
         . insertAt @4 @(ByteInput : ByteOutput : Tagged 'StandardStream ByteInput : Tagged 'ErrorStream ByteInput : '[])
 
-ioshd ::
-  ( Member Fail r,
-    Member Race r,
-    Member Decoder r,
-    Member Exit r,
-    Member Async r,
-    Member ByteInput r,
-    Member ByteOutput r,
-    Member (Scoped PTYParams PTY) r,
-    Member (Scoped ProcessParams Proc.Process) r
-  ) =>
-  Sem r ()
+ioshd :: (Member Fail r, Member Race r, Member Decoder r, Member Exit r, Member Async r, Member ByteInput r, Member ByteOutput r, Member (Scoped PTYParams PTY) r, Member (Scoped ProcessParams Proc.Process) r) => Sem r ()
 ioshd = do
   hshake@(Handshake pty _ _ _ _) <- inputX
   runTunnel . runProcess hshake $ do
