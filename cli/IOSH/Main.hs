@@ -43,15 +43,15 @@ ttyOutputSender = tag @'User @ByteInput . tag @'Tunnel @ByteOutput $ go
     go = runEffect $ inputter >-> P.map Input >-> xOutputter
 
 init :: forall r. (Member TTY r, Member (Tagged 'Tunnel ByteOutput) r) => Bool -> FilePath -> Args -> Maybe Environment -> Sem r () -> Sem r ()
-init pty path args maybeEnv go = tag @'Tunnel @ByteOutput $ do
+init pty path args maybeEnv m = tag @'Tunnel @ByteOutput $ do
   maybeSize <- whenMaybe pty getSize
   outputX $ Handshake pty maybeEnv path args maybeSize
   when pty $ setResizeHandler (outputX . Resize)
   if pty
-    then rawBracket go'
-    else go'
+    then rawBracket m'
+    else m'
   where
-    go' = raise go
+    m' = raise m
 
 runUser :: (Member (Tagged 'StandardStream ByteOutput) r, Member (Tagged 'ErrorStream ByteOutput) r, Member ByteInput r) => InterpretersFor (Tagged 'User ByteInput : Tagged 'User (Tagged 'ErrorStream ByteOutput) : Tagged 'User (Tagged 'StandardStream ByteOutput) : '[]) r
 runUser = untagged @'User @(Tagged 'StandardStream ByteOutput) . untagged @'User @(Tagged 'ErrorStream ByteOutput) . untagged @'User @ByteInput
