@@ -13,7 +13,7 @@ import Polysemy.Async_
 import Polysemy.Conc hiding (Scoped)
 import Polysemy.Exit
 import Polysemy.Fail
-import Polysemy.Internal.Kind
+import Polysemy.Internal hiding (run)
 import Polysemy.Output hiding (Output)
 import Polysemy.PTY (PTY, PTYEffects, PTYParams (..), Resize, scopedPTYToIOFinal)
 import Polysemy.PTY qualified as PTY
@@ -55,15 +55,19 @@ outputSender pty =
 proveNo :: forall e r a. (Member Fail r) => Sem (e : r) a -> Sem r a
 proveNo = interpretH @e (const $ fail "unexpected effect in Sem")
 
-exec :: (Member (Scoped PTYParams PTY) r, Member (Scoped ProcessParams Proc.Process) r, Member Fail r) => Handshake -> InterpretersFor (Append PTYEffects ProcessEffects) r
-exec (Handshake False sessionEnv path args Nothing) m = go . proveNo @ByteOutput . proveNo @ByteInput . proveNo @Resize $ subsume_ m
+exec :: forall r a. (Member (Scoped PTYParams PTY) r, Member (Scoped ProcessParams Proc.Process) r, Member Fail r) => Handshake -> Sem (Append PTYEffects (Append ProcessEffects r)) a -> Sem r a
+exec hshake m = case hshake of
+  (Handshake False sessionEnv path args Nothing) -> go . proveNo @ByteOutput . proveNo @ByteInput . proveNo @Resize $ m'
+    where
+      go = Proc.exec (InternalProcess sessionEnv path args)
+  (Handshake True sessionEnv path args maybeSize) -> go . proveNo @(Tagged 'ErrorStream ByteInput) . proveNo @(Tagged 'StandardStream ByteInput) . proveNo @ByteOutput $ m'
+    where
+      maybeSizeOrDefault = fromMaybe (80, 24) maybeSize
+      go = PTY.exec (PTYParams sessionEnv path args maybeSizeOrDefault)
+  (Handshake False _ _ _ (Just _)) -> fail "cannot apply provided terminal size in non-pty session"
   where
-    go = Proc.exec (InternalProcess sessionEnv path args)
-exec (Handshake True sessionEnv path args maybeSize) m = go . proveNo @(Tagged 'ErrorStream ByteInput) . proveNo @(Tagged 'StandardStream ByteInput) . proveNo @ByteOutput $ subsume_ m
-  where
-    maybeSizeOrDefault = fromMaybe (80, 24) maybeSize
-    go = PTY.exec (PTYParams sessionEnv path args maybeSizeOrDefault)
-exec (Handshake False _ _ _ (Just _)) _ = fail "cannot apply provided terminal size in non-pty session"
+    m' :: (Members (Append PTYEffects ProcessEffects) r', Subsume r r') => Sem r' a
+    m' = subsume_ m
 
 resize :: (Member Fail r, Member Resize r) => Bool -> Size -> Sem r ()
 resize True size = PTY.resize size
