@@ -47,7 +47,11 @@ init pty path args maybeEnv go = tag @'Tunnel @ByteOutput $ do
   maybeSize <- whenMaybe pty getSize
   outputX $ Handshake pty maybeEnv path args maybeSize
   when pty $ setResizeHandler (outputX . Resize)
-  rawBracket (raise go)
+  if pty
+    then rawBracket go'
+    else go'
+  where
+    go' = raise go
 
 runUser :: (Member (Tagged 'StandardStream ByteOutput) r, Member (Tagged 'ErrorStream ByteOutput) r, Member ByteInput r) => InterpretersFor (Tagged 'User ByteInput : Tagged 'User (Tagged 'ErrorStream ByteOutput) : Tagged 'User (Tagged 'StandardStream ByteOutput) : '[]) r
 runUser = untagged @'User @(Tagged 'StandardStream ByteOutput) . untagged @'User @(Tagged 'ErrorStream ByteOutput) . untagged @'User @ByteInput
