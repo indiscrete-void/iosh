@@ -62,8 +62,8 @@ exec hshake m = case hshake of
       go = Proc.exec (InternalProcess sessionEnv path args)
   (Handshake True sessionEnv path args maybeSize) -> go . proveNo @(Tagged 'ErrorStream ByteInput) . proveNo @(Tagged 'StandardStream ByteInput) . proveNo @ByteOutput $ m'
     where
-      maybeSizeOrDefault = fromMaybe (80, 24) maybeSize
-      go = PTY.exec (PTYParams sessionEnv path args maybeSizeOrDefault)
+      size = fromMaybe (80, 24) maybeSize
+      go = PTY.exec (PTYParams sessionEnv path args size)
   (Handshake False _ _ _ (Just _)) -> fail "cannot apply provided terminal size in non-pty session"
   where
     m' :: (Members (Append PTYEffects ProcessEffects) r', Subsume r r') => Sem r' a
