@@ -54,16 +54,17 @@ exec params = scoped @_ @PTY params . bundlePTYEffects . insertAt @4 @'[PTY]
 ps2s :: Size -> (Int, Int)
 ps2s = join bimap fromIntegral
 
-scopedPTYToIOFinal :: (Member (Final IO) r, Member (Embed IO) r) => InterpreterFor (Scoped PTYParams PTY) r
+scopedPTYToIOFinal :: (Member (Final IO) r) => InterpreterFor (Scoped PTYParams PTY) r
 scopedPTYToIOFinal = runScopedNew go
   where
     go param = ptyParamsToIOFinal param . runBundle
 
-ptyParamsToIOFinal :: (Member (Final IO) r, Member (Embed IO) r) => PTYParams -> InterpretersFor PTYEffects r
-ptyParamsToIOFinal param sem = resourceToIOFinal $ bracket (open param) close (raise . flip (uncurry ptyToIO) sem)
+ptyParamsToIOFinal :: (Member (Final IO) r) => PTYParams -> InterpretersFor PTYEffects r
+ptyParamsToIOFinal param sem = resourceToIOFinal $ bracket (open param) close (raise . go)
   where
     open (PTYParams sessionEnv path args size) = embedFinal $ spawnWithPty sessionEnv True path args (ps2s size)
     close (pty, _) = embedFinal $ closePty pty
+    go = embedToFinal @IO . flip (uncurry ptyToIO) (insertAt @4 @'[Embed IO] sem)
 
 ptyToIO :: (Member (Embed IO) r) => Pty -> ProcessHandle -> InterpretersFor PTYEffects r
 ptyToIO pty ph =

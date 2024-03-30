@@ -50,13 +50,14 @@ scopedProcToIOFinal = embedToFinal @IO . runScopedNew go . raiseUnder
   where
     go param = procParamsToIOFinal param . runBundle
 
-procParamsToIOFinal :: (Member (Final IO) r, Member (Embed IO) r) => ProcessParams -> InterpretersFor ProcessEffects r
-procParamsToIOFinal param sem = resourceToIOFinal $ bracket (openProc param) closeProc (raise . flip procToIO sem)
+procParamsToIOFinal :: (Member (Final IO) r) => ProcessParams -> InterpretersFor ProcessEffects r
+procParamsToIOFinal param sem = resourceToIOFinal $ bracket (openProc param) closeProc (raise . go)
   where
     openProc params = embedFinal $ createProcess (toCreateProcess params)
     closeProc hs = embedFinal $ cleanupProcess hs
     toCreateProcess (InternalProcess sessionEnv path args) = (proc path args) {env = sessionEnv, std_in = CreatePipe, std_out = CreatePipe, std_err = CreatePipe}
     toCreateProcess (TunnelProcess cmd) = (shell cmd) {std_in = CreatePipe, std_out = CreatePipe}
+    go = embedToFinal @IO . flip procToIO (insertAt @4 @'[Embed IO] sem)
 
 procToIO :: (Member (Embed IO) r) => (Maybe Handle, Maybe Handle, Maybe Handle, ProcessHandle) -> InterpretersFor ProcessEffects r
 procToIO (i, o, e, ph) =
