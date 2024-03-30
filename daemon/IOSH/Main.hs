@@ -57,10 +57,10 @@ proveNo = interpretH @e (const $ fail "unexpected effect in Sem")
 
 exec :: forall r a. (Member (Scoped PTYParams PTY) r, Member (Scoped ProcessParams Proc.Process) r, Member Fail r) => Handshake -> Sem (Append PTYEffects (Append ProcessEffects r)) a -> Sem r a
 exec hshake m = case hshake of
-  (Handshake False sessionEnv path args Nothing) -> go . proveNo @ByteOutput . proveNo @ByteInput . proveNo @Resize $ m'
+  (Handshake False sessionEnv path args Nothing) -> go . proveNo @ByteInput . proveNo @Resize $ m'
     where
       go = Proc.exec (InternalProcess sessionEnv path args)
-  (Handshake True sessionEnv path args maybeSize) -> go . proveNo @(Tagged 'ErrorStream ByteInput) . proveNo @(Tagged 'StandardStream ByteInput) . proveNo @ByteOutput $ m'
+  (Handshake True sessionEnv path args maybeSize) -> go . proveNo @(Tagged 'ErrorStream ByteInput) . proveNo @(Tagged 'StandardStream ByteInput) $ m'
     where
       size = fromMaybe (80, 24) maybeSize
       go = PTY.exec (PTYParams sessionEnv path args size)
