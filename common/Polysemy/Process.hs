@@ -11,6 +11,7 @@ where
 import Control.Monad
 import Data.Kind
 import Data.Maybe
+import IOSH.IO
 import IOSH.Maybe
 import IOSH.Protocol (Environment)
 import Polysemy
@@ -53,11 +54,12 @@ scopedProcToIOFinal = embedToFinal @IO . runScopedNew go . raiseUnder
 procParamsToIOFinal :: (Member (Final IO) r) => ProcessParams -> InterpretersFor ProcessEffects r
 procParamsToIOFinal param sem = resourceToIOFinal $ bracket (openProc param) closeProc (raise . go)
   where
+    disableProcBuffering (i, o, e, _) = mapM_ disableBuffering (catMaybes [i, o, e])
     openProc params = embedFinal $ createProcess (toCreateProcess params)
     closeProc hs = embedFinal $ cleanupProcess hs
     toCreateProcess (InternalProcess sessionEnv path args) = (proc path args) {env = sessionEnv, std_in = CreatePipe, std_out = CreatePipe, std_err = CreatePipe}
     toCreateProcess (TunnelProcess cmd) = (shell cmd) {std_in = CreatePipe, std_out = CreatePipe}
-    go = embedToFinal @IO . flip procToIO (insertAt @4 @'[Embed IO] sem)
+    go hs = embedToFinal @IO $ embed (disableProcBuffering hs) >> procToIO hs (insertAt @4 @'[Embed IO] sem)
 
 procToIO :: (Member (Embed IO) r) => (Maybe Handle, Maybe Handle, Maybe Handle, ProcessHandle) -> InterpretersFor ProcessEffects r
 procToIO (i, o, e, ph) =
