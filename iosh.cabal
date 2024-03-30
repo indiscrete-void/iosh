@@ -25,6 +25,11 @@ common default
     if flag(pedantic)
         ghc-options: -Werror
 
+    build-depends:
+        base ^>=4.16.4.0,
+        polysemy,
+        pipes,
+
 library common
     import: default
     exposed-modules:
@@ -41,13 +46,11 @@ library common
 
     hs-source-dirs: common
     build-depends:
-        base ^>=4.16.4.0,
-        bytestring ^>=0.11.5.2,
-        process ^>=1.6.18.0,
-        polysemy ^>=1.9.1.3,
-        pipes ^>=4.3.16,
-        cereal ^>=0.5.8.3,
-        async ^>=2.2.5,
+        bytestring,
+        process,
+        pipes,
+        cereal,
+        async,
 
 executable iosh
     import: default
@@ -59,13 +62,10 @@ executable iosh
         IOSH.Options
 
     build-depends:
-        base ^>=4.16.4.0,
-        polysemy ^>=1.9.1.3,
-        pipes ^>=4.3.16,
         common,
-        unix ^>=2.8.5.0,
-        terminal-size ^>=0.3.4,
-        optparse-applicative ^>=0.18.1.0,
+        unix,
+        terminal-size,
+        optparse-applicative,
 
 executable ioshd
     import: default
@@ -75,10 +75,7 @@ executable ioshd
         Polysemy.PTY
 
     build-depends:
-        base ^>=4.16.4.0,
-        polysemy ^>=1.9.1.3,
-        polysemy-conc ^>=0.13.0.1,
-        pipes ^>=4.3.16,
         common,
-        process ^>=1.6.18.0,
-        posix-pty ^>=0.2.2,
+        polysemy-conc,
+        process,
+        posix-pty,
