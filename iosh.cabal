@@ -80,3 +80,14 @@ executable ioshd
         polysemy-conc,
         process,
         posix-pty,
+
+test-suite tests
+    import: default
+    type: exitcode-stdio-1.0
+    hs-source-dirs: tests
+    main-is: Main.hs
+    build-depends:
+        common,
+        tasty ^>=1.5,
+        tasty-hunit ^>=0.10.1,
+        tasty-smallcheck ^>=0.8.2,
