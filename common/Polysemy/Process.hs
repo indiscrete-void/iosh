@@ -61,33 +61,25 @@ procParamsToIOFinal param sem = resourceToIOFinal $ bracket (openProc param) clo
     closeProc hs = embedFinal $ cleanupProcess hs
     toCreateProcess (InternalProcess sessionEnv path args) = (proc path args) {env = sessionEnv, std_in = CreatePipe, std_out = CreatePipe, std_err = CreatePipe}
     toCreateProcess (TunnelProcess cmd) = (shell cmd) {std_in = CreatePipe, std_out = CreatePipe}
-    go hs = embedToFinal @IO $ embed (disableProcBuffering hs) >> procToIO hs (insertAt @5 @'[Embed IO] sem)
+    go hs = embedToFinal @IO $ embed (disableProcBuffering hs) >> unmaybeHandles hs >>= flip procToIO (insertAt @5 @'[Embed IO] sem)
+    unmaybeHandles (mi, mo, me, ph) = do
+      i <- unmaybeHandle @IO mi
+      o <- unmaybeHandle @IO mo
+      return (i, o, me, ph)
 
-procToIO :: (Member (Embed IO) r) => (Maybe Handle, Maybe Handle, Maybe Handle, ProcessHandle) -> InterpretersFor ProcessEffects r
+procToIO :: (Member (Embed IO) r) => (Handle, Handle, Maybe Handle, ProcessHandle) -> InterpretersFor ProcessEffects r
 procToIO (i, o, e, ph) =
-  maybeCloseToIO i
+  closeToIO i
     . waitToIO ph
     . (maybeInputToIO e . untag @'ErrorStream)
-    . (maybeInputToIO o . untag @'StandardStream)
-    . maybeOutputToIO i
-
-maybeCloseToIO :: (Member (Embed IO) r) => Maybe Handle -> Sem (Close : r) a -> Sem r a
-maybeCloseToIO mh = interpret $ \case
-  Close -> do
-    h <- unmaybeHandle @IO mh
-    closeToIO h close
+    . (inputToIO o . untag @'StandardStream)
+    . outputToIO i
 
 maybeInputToIO :: (Member (Embed IO) r) => Maybe Handle -> InterpreterFor ByteInput r
 maybeInputToIO mh = interpret $ \case
   Input -> do
     h <- unmaybeHandle @IO mh
     inputToIO h input
-
-maybeOutputToIO :: (Member (Embed IO) r) => Maybe Handle -> InterpreterFor ByteOutput r
-maybeOutputToIO mh = interpret $ \case
-  Output str -> do
-    h <- unmaybeHandle @IO mh
-    outputToIO h $ output str
 
 unmaybeHandle :: forall m r a. (MonadFail m, Member (Embed m) r) => Maybe a -> Sem r a
 unmaybeHandle = embed @m . maybeFail "required process stream isn't piped"
