@@ -15,6 +15,7 @@ import Data.Kind
 import IOSH.Protocol hiding (Input, Output, Resize)
 import Polysemy
 import Polysemy.Bundle
+import Polysemy.Close
 import Polysemy.Input
 import Polysemy.Output
 import Polysemy.Resource
@@ -34,7 +35,7 @@ data Resize m a where
   Resize :: Size -> Resize m ()
 
 type PTYEffects :: [Effect]
-type PTYEffects = Resize : ByteInput : ByteOutput : Wait : '[]
+type PTYEffects = Resize : ByteInput : ByteOutput : Wait : Close : '[]
 
 type PTY :: Effect
 type PTY = Bundle PTYEffects
@@ -43,13 +44,14 @@ makeSem ''Resize
 
 bundlePTYEffects :: (Member PTY r) => InterpretersFor PTYEffects r
 bundlePTYEffects =
-  sendBundle @Wait @PTYEffects
+  sendBundle @Close @PTYEffects
+    . sendBundle @Wait @PTYEffects
     . sendBundle @ByteOutput @PTYEffects
     . sendBundle @ByteInput @PTYEffects
     . sendBundle @Resize @PTYEffects
 
 exec :: (Member (Scoped PTYParams PTY) r) => PTYParams -> InterpretersFor PTYEffects r
-exec params = scoped @_ @PTY params . bundlePTYEffects . insertAt @4 @'[PTY]
+exec params = scoped @_ @PTY params . bundlePTYEffects . insertAt @5 @'[PTY]
 
 ps2s :: Size -> (Int, Int)
 ps2s = join bimap fromIntegral
@@ -60,18 +62,23 @@ scopedPTYToIOFinal = runScopedNew go
     go param = ptyParamsToIOFinal param . runBundle
 
 ptyParamsToIOFinal :: (Member (Final IO) r) => PTYParams -> InterpretersFor PTYEffects r
-ptyParamsToIOFinal param sem = resourceToIOFinal $ bracket (open param) close (raise . go)
+ptyParamsToIOFinal param sem = resourceToIOFinal $ bracket (embedOpenPty param) embedClosePty (raise . go)
   where
-    open (PTYParams sessionEnv path args size) = embedFinal $ spawnWithPty sessionEnv True path args (ps2s size)
-    close (pty, _) = embedFinal $ closePty pty
-    go = embedToFinal @IO . flip (uncurry ptyToIO) (insertAt @4 @'[Embed IO] sem)
+    embedOpenPty (PTYParams sessionEnv path args size) = embedFinal $ spawnWithPty sessionEnv True path args (ps2s size)
+    embedClosePty (pty, _) = embedFinal $ closePty pty
+    go = embedToFinal @IO . flip (uncurry ptyToIO) (insertAt @5 @'[Embed IO] sem)
 
 ptyToIO :: (Member (Embed IO) r) => Pty -> ProcessHandle -> InterpretersFor PTYEffects r
 ptyToIO pty ph =
-  waitToIO ph
+  closeToPTYIO pty
+    . waitToIO ph
     . outputToPtyIO pty
     . inputToPtyIO pty
     . resizeToIO pty
+
+closeToPTYIO :: (Member (Embed IO) r) => Pty -> InterpreterFor Close r
+closeToPTYIO pty = interpret $ \case
+  Close -> embed $ closePty pty
 
 inputToPtyIO :: (Member (Embed IO) r) => Pty -> InterpreterFor ByteInput r
 inputToPtyIO pty = interpret $ \case

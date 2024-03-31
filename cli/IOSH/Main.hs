@@ -9,6 +9,7 @@ import Pipes.Prelude qualified as P
 import Polysemy hiding (run)
 import Polysemy.Async
 import Polysemy.Async_
+import Polysemy.Close
 import Polysemy.Exit
 import Polysemy.Fail
 import Polysemy.Output hiding (Output)
@@ -40,7 +41,7 @@ serverMessageReceiver = tag @'Tunnel @ByteInput . tag @'Tunnel @ByteOutput . tag
 ttyOutputSender :: (Member (Tagged 'User ByteInput) r, Member (Tagged 'Tunnel ByteOutput) r) => Sem r ()
 ttyOutputSender = tag @'User @ByteInput . tag @'Tunnel @ByteOutput $ go
   where
-    go = runEffect $ inputter >-> P.map Input >-> xOutputter
+    go = runEffect (inputter >-> P.map Input >-> xOutputter) >> outputX EOF
 
 init :: forall r. (Member TTY r, Member (Tagged 'Tunnel ByteOutput) r) => Bool -> FilePath -> Args -> Maybe Environment -> Sem r () -> Sem r ()
 init pty path args maybeEnv m = tag @'Tunnel @ByteOutput $ do
@@ -56,7 +57,7 @@ init pty path args maybeEnv m = tag @'Tunnel @ByteOutput $ do
 runUser :: (Member (Tagged 'StandardStream ByteOutput) r, Member (Tagged 'ErrorStream ByteOutput) r, Member ByteInput r) => InterpretersFor (Tagged 'User ByteInput : Tagged 'User (Tagged 'ErrorStream ByteOutput) : Tagged 'User (Tagged 'StandardStream ByteOutput) : '[]) r
 runUser = untagged @'User @(Tagged 'StandardStream ByteOutput) . untagged @'User @(Tagged 'ErrorStream ByteOutput) . untagged @'User @ByteInput
 
-runTunnel :: forall r. (Member (Scoped ProcessParams Process) r) => String -> InterpretersFor (Tagged 'Tunnel ByteInput : Tagged 'Tunnel ByteOutput : Wait : '[]) r
+runTunnel :: forall r. (Member (Scoped ProcessParams Process) r) => String -> InterpretersFor (Tagged 'Tunnel ByteInput : Tagged 'Tunnel ByteOutput : Wait : Close : '[]) r
 runTunnel tunProcCmd = exec (TunnelProcess tunProcCmd) . untag @'Tunnel @ByteOutput . retag @'Tunnel @'StandardStream @ByteInput . raise2Under @(Tagged 'StandardStream ByteInput) . raise2Under @(Tagged 'ErrorStream ByteInput)
 
 iosh :: (Member Async r, Members User r, Member Decoder r, Member Fail r, Member Exit r, Member TTY r, Member (Scoped ProcessParams Process) r) => Options -> Sem r ()

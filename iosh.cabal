@@ -40,6 +40,7 @@ library common
         Polysemy.Exit
         Polysemy.Untag
         Polysemy.Async_
+        Polysemy.Close
         IOSH.Maybe
         IOSH.Protocol
         IOSH.IO

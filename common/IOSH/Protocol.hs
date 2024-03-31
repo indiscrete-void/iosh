@@ -41,6 +41,7 @@ type ClientMessage :: Type
 data ClientMessage where
   Resize :: Size -> ClientMessage
   Input :: ByteString -> ClientMessage
+  EOF :: ClientMessage
   ClientTermination :: ExitCode -> ClientMessage
   deriving stock (Generic)
 

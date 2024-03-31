@@ -10,6 +10,7 @@ import Pipes.Prelude qualified as P
 import Polysemy hiding (run)
 import Polysemy.Async
 import Polysemy.Async_
+import Polysemy.Close
 import Polysemy.Conc hiding (Scoped)
 import Polysemy.Exit
 import Polysemy.Fail
@@ -30,7 +31,7 @@ import System.IO
 type Stream :: Type
 data Stream = Tunnel | Process
 
-clientMessageReceiver :: (Member Decoder r, Member Fail r, Member Exit r, Member (Tagged 'Tunnel ByteInput) r, Member (Tagged 'Process ByteOutput) r, Member Resize r) => Bool -> Sem r ()
+clientMessageReceiver :: (Member Decoder r, Member Fail r, Member Exit r, Member (Tagged 'Tunnel ByteInput) r, Member (Tagged 'Process ByteOutput) r, Member Resize r, Member Close r) => Bool -> Sem r ()
 clientMessageReceiver pty = tag @'Process @ByteOutput go
   where
     go = tag @'Tunnel @ByteInput . runEffect $ for xInputter handle
@@ -38,6 +39,7 @@ clientMessageReceiver pty = tag @'Process @ByteOutput go
         handle (Input str) = lift $ output str
         handle (IOSH.Resize size) = lift $ resize pty size
         handle (ClientTermination code) = lift $ exit code
+        handle EOF = lift close
 
 outputSender :: (Member Race r, Member (Tagged 'Tunnel ByteOutput) r, Member (Tagged 'Process (Tagged 'StandardStream ByteInput)) r, Member (Tagged 'Process (Tagged 'ErrorStream ByteInput)) r, Member (Tagged 'Process ByteInput) r) => Bool -> Sem r ()
 outputSender pty =
@@ -79,7 +81,7 @@ sendExitCode = wait >>= outputX . ServerTermination
 runTunnel :: (Member ByteInput r, Member ByteOutput r) => InterpretersFor (Tagged 'Tunnel ByteInput : Tagged 'Tunnel ByteOutput : '[]) r
 runTunnel = untagged @'Tunnel @ByteOutput . untagged @'Tunnel @ByteInput
 
-runProcess :: (Member (Scoped PTYParams PTY) r, Member (Scoped ProcessParams Proc.Process) r, Member Fail r) => Handshake -> InterpretersFor (Tagged 'Process ByteOutput : Tagged 'Process ByteInput : Tagged 'Process (Tagged 'StandardStream ByteInput) : Tagged 'Process (Tagged 'ErrorStream ByteInput) : Resize : Wait : '[]) r
+runProcess :: (Member (Scoped PTYParams PTY) r, Member (Scoped ProcessParams Proc.Process) r, Member Fail r) => Handshake -> InterpretersFor (Tagged 'Process ByteOutput : Tagged 'Process ByteInput : Tagged 'Process (Tagged 'StandardStream ByteInput) : Tagged 'Process (Tagged 'ErrorStream ByteInput) : Resize : Wait : Close : '[]) r
 runProcess hshake = exec hshake . subsume_ . untagPorcess
   where
     untagPorcess :: Sem (Tagged 'Process ByteOutput : Tagged 'Process ByteInput : Tagged 'Process (Tagged 'StandardStream ByteInput) : Tagged 'Process (Tagged 'ErrorStream ByteInput) : r) a -> Sem (ByteInput : ByteOutput : Tagged 'StandardStream ByteInput : Tagged 'ErrorStream ByteInput : r) a
