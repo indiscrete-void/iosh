@@ -1,7 +1,7 @@
 # IO shell
 ## Examples
 ```sh
-# Scripts for using general socat address
+# Shell over arbitrary socat address
 socat "$1" exec:ioshd         # /usr/bin/soshd
 iosh -et "socat $1 -" bash -l # /usr/bin/sosh
 
