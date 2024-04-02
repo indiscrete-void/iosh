@@ -1,4 +1,4 @@
-cabal-version: 2.4
+cabal-version: 3.6
 name: iosh
 version: 0.1.0.0
 maintainer: indiscrete.void@gmail.com
@@ -63,7 +63,7 @@ executable iosh
         IOSH.Options
 
     build-depends:
-        common,
+        iosh:common,
         unix,
         terminal-size,
         optparse-applicative,
@@ -76,7 +76,7 @@ executable ioshd
         Polysemy.PTY
 
     build-depends:
-        common,
+        iosh:common,
         polysemy-conc,
         process,
         posix-pty,
@@ -87,7 +87,7 @@ test-suite tests
     hs-source-dirs: tests
     main-is: Main.hs
     build-depends:
-        common,
+        iosh:common,
         tasty,
         tasty-hunit,
         tasty-smallcheck,
