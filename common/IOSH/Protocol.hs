@@ -10,7 +10,7 @@ module IOSH.Protocol
     Args,
     Size,
     failTermination,
-    failEOF,
+    transferStream,
     StreamKind (..),
   )
 where
@@ -20,12 +20,16 @@ import Data.Int
 import Data.Kind
 import Data.Serialize
 import GHC.Generics
+import Pipes
+import Pipes.Prelude qualified as P
 import Polysemy
 import Polysemy.Fail
+import Polysemy.Transport
 import System.Exit
 
 type StreamKind :: Type
 data StreamKind = StandardStream | ErrorStream
+  deriving stock (Generic)
 
 type Environment :: Type
 type Environment = [(String, String)]
@@ -45,7 +49,7 @@ type ClientMessage :: Type
 data ClientMessage where
   Resize :: Size -> ClientMessage
   Input :: ByteString -> ClientMessage
-  EOF :: ClientMessage
+  ClientEOF :: ClientMessage
   ClientTermination :: ExitCode -> ClientMessage
   deriving stock (Generic)
 
@@ -53,14 +57,17 @@ type ServerMessage :: Type
 data ServerMessage where
   Output :: ByteString -> ServerMessage
   Error :: ByteString -> ServerMessage
+  ServerEOF :: StreamKind -> ServerMessage
   ServerTermination :: ExitCode -> ServerMessage
   deriving stock (Generic)
 
 failTermination :: (Member Fail r) => Sem r a
 failTermination = fail "session ended before termination procedure was done"
 
-failEOF :: (Member Fail r) => Sem r a
-failEOF = fail "end of pipe reached"
+transferStream :: (Member ByteInput r, Member ByteOutput r, Serialize msg, Serialize eofMsg) => (ByteString -> msg) -> eofMsg -> Sem r ()
+transferStream f eof = runEffect (inputter >-> P.map f >-> xOutputter) >> outputX eof
+
+instance Serialize StreamKind
 
 instance Serialize ExitCode
 

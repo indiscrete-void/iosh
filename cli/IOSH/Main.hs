@@ -5,7 +5,6 @@ import IOSH.Maybe
 import IOSH.Options
 import IOSH.Protocol
 import Pipes hiding (await)
-import Pipes.Prelude qualified as P
 import Polysemy hiding (run)
 import Polysemy.Async
 import Polysemy.Async_
@@ -29,19 +28,19 @@ import Prelude hiding (init)
 type Stream :: Type
 data Stream = User | Tunnel
 
-serverMessageReceiver :: (Member Decoder r, Member Fail r, Member Exit r, Member (Tagged 'User (Tagged 'StandardStream ByteOutput)) r, Member (Tagged 'User (Tagged 'ErrorStream ByteOutput)) r, Member (Tagged 'Tunnel ByteInput) r, Member (Tagged 'Tunnel ByteOutput) r) => Sem r ()
+serverMessageReceiver :: (Member Decoder r, Member Fail r, Member Exit r, Member (Tagged 'User (Tagged 'StandardStream ByteOutput)) r, Member (Tagged 'User (Tagged 'ErrorStream ByteOutput)) r, Member (Tagged 'Tunnel ByteInput) r, Member (Tagged 'Tunnel ByteOutput) r, Member (Tagged 'StandardStream Close) r, Member (Tagged 'ErrorStream Close) r) => Sem r ()
 serverMessageReceiver = tag @'Tunnel @ByteInput . tag @'Tunnel @ByteOutput . tag @'User @(Tagged 'StandardStream ByteOutput) . tag @'User @(Tagged 'ErrorStream ByteOutput) . runEffect $ go
   where
     go = for xInputter handle
       where
         handle (Output str) = lift $ tag @'StandardStream @ByteOutput (output str)
         handle (Error str) = lift $ tag @'ErrorStream @ByteOutput (output str)
+        handle (ServerEOF StandardStream) = lift $ tag @'StandardStream @Close close
+        handle (ServerEOF ErrorStream) = lift $ tag @'ErrorStream @Close close
         handle (ServerTermination code) = lift $ outputX (ClientTermination code) >> exit code
 
 ttyOutputSender :: (Member (Tagged 'User ByteInput) r, Member (Tagged 'Tunnel ByteOutput) r) => Sem r ()
-ttyOutputSender = tag @'User @ByteInput . tag @'Tunnel @ByteOutput $ go
-  where
-    go = runEffect (inputter >-> P.map Input >-> xOutputter) >> outputX EOF
+ttyOutputSender = tag @'User @ByteInput . tag @'Tunnel @ByteOutput $ transferStream Input ClientEOF
 
 init :: forall r. (Member TTY r, Member (Tagged 'Tunnel ByteOutput) r) => Bool -> FilePath -> Args -> Maybe Environment -> Sem r () -> Sem r ()
 init pty path args maybeEnv m = tag @'Tunnel @ByteOutput $ do

@@ -6,7 +6,6 @@ import IOSH.IO
 import IOSH.Protocol
 import IOSH.Protocol qualified as IOSH
 import Pipes hiding (await)
-import Pipes.Prelude qualified as P
 import Polysemy hiding (run)
 import Polysemy.Async
 import Polysemy.Async_
@@ -39,20 +38,17 @@ clientMessageReceiver pty = tag @'Process @ByteOutput go
         handle (Input str) = lift $ output str
         handle (IOSH.Resize size) = lift $ resize pty size
         handle (ClientTermination code) = lift $ exit code
-        handle EOF = lift close
+        handle ClientEOF = lift close
 
 outputSender :: (Member Race r, Member (Tagged 'Tunnel ByteOutput) r, Member (Tagged 'Process (Tagged 'StandardStream ByteInput)) r, Member (Tagged 'Process (Tagged 'ErrorStream ByteInput)) r, Member (Tagged 'Process ByteInput) r) => Bool -> Sem r ()
 outputSender pty =
   tag @'Tunnel @ByteOutput $
     if pty
-      then tag @'Process @ByteInput go
+      then tag @'Process @ByteInput $ transferStream Output (ServerEOF StandardStream)
       else
         race_
-          (tag @'Process @(Tagged 'StandardStream ByteInput) . tag @'StandardStream @ByteInput $ go)
-          (tag @'Process @(Tagged 'ErrorStream ByteInput) . tag @'ErrorStream @ByteInput $ go)
-  where
-    go :: forall r. (Member ByteInput r, Member ByteOutput r) => Sem r ()
-    go = runEffect $ inputter >-> P.map Output >-> xOutputter
+          (tag @'Process @(Tagged 'StandardStream ByteInput) . tag @'StandardStream @ByteInput $ transferStream Output (ServerEOF StandardStream))
+          (tag @'Process @(Tagged 'ErrorStream ByteInput) . tag @'ErrorStream @ByteInput $ transferStream Error (ServerEOF ErrorStream))
 
 proveNo :: forall e r a. (Member Fail r) => Sem (e : r) a -> Sem r a
 proveNo = interpretH @e (const $ fail "unexpected effect in Sem")

@@ -7,6 +7,7 @@ where
 
 import IOSH.Protocol
 import Polysemy
+import Polysemy.Close
 import Polysemy.Tagged
 import Polysemy.Transport
 import System.Environment hiding (getEnv)
@@ -18,12 +19,18 @@ data Env m a where
   GetEnv :: Env m Environment
 
 type User :: [Effect]
-type User = ByteInput : Tagged 'StandardStream ByteOutput : Tagged 'ErrorStream ByteOutput : Env : '[]
+type User = ByteInput : Tagged 'StandardStream ByteOutput : Tagged 'ErrorStream ByteOutput : Tagged 'StandardStream Close : Tagged 'ErrorStream Close : Env : '[]
 
 makeSem ''Env
 
 userToIO :: (Member (Embed IO) r) => Handle -> Handle -> Handle -> InterpretersFor User r
-userToIO i o e = envToIO . outputToIO e . untag @'ErrorStream . outputToIO o . untag @'StandardStream . inputToIO i
+userToIO i o e =
+  envToIO
+    . (closeToIO e . untag @'ErrorStream)
+    . (closeToIO o . untag @'StandardStream)
+    . (outputToIO e . untag @'ErrorStream)
+    . (outputToIO o . untag @'StandardStream)
+    . inputToIO i
 
 envToIO :: (Member (Embed IO) r) => InterpreterFor Env r
 envToIO = interpret $ \case
