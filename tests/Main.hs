@@ -25,7 +25,7 @@ testTransferStream :: TestTree
 testTransferStream =
   testGroup
     "transferStream"
-    [ testCase "Outputs all input values wrapped in passed f and passed eof message after EOF" $
+    [ testCase "Outputs all input values wrapped in passed f and passed message after EOF" $
         let inputList = map B.pack ["a", "b", "c"]
             outputList = map encode $ map Data inputList ++ [EOF]
             run = fst . Sem.run . runOutputList @ByteString . runInputList inputList
