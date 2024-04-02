@@ -91,3 +91,5 @@ test-suite tests
         tasty,
         tasty-hunit,
         tasty-smallcheck,
+        bytestring,
+        cereal,
