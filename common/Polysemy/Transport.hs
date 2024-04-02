@@ -10,7 +10,6 @@ module Polysemy.Transport
     xOutputter,
     inputX,
     outputX,
-    StreamKind (..),
   )
 where
 
@@ -28,9 +27,6 @@ import Polysemy.Input
 import Polysemy.Output
 import Polysemy.Serialize
 import System.IO
-
-type StreamKind :: Type
-data StreamKind = StandardStream | ErrorStream
 
 type ByteInput :: (Type -> Type) -> Type -> Type
 type ByteInput = Input (Maybe ByteString)

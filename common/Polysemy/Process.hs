@@ -13,12 +13,11 @@ import Data.Kind
 import Data.Maybe
 import IOSH.IO
 import IOSH.Maybe
-import IOSH.Protocol (Environment)
+import IOSH.Protocol (Environment, StreamKind (..))
 import Polysemy
 import Polysemy.Bundle
 import Polysemy.Close
 import Polysemy.Input
-import Polysemy.Output
 import Polysemy.Resource
 import Polysemy.Scoped
 import Polysemy.Tagged

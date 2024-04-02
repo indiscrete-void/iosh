@@ -11,6 +11,7 @@ module IOSH.Protocol
     Size,
     failTermination,
     failEOF,
+    StreamKind (..),
   )
 where
 
@@ -22,6 +23,9 @@ import GHC.Generics
 import Polysemy
 import Polysemy.Fail
 import System.Exit
+
+type StreamKind :: Type
+data StreamKind = StandardStream | ErrorStream
 
 type Environment :: Type
 type Environment = [(String, String)]
