@@ -2,7 +2,10 @@
 
 !LICENSE
 !.gitignore
+
 !iosh.cabal
+!default.nix
+
 !common
 !daemon
 !cli
