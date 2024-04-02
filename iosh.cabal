@@ -88,6 +88,6 @@ test-suite tests
     main-is: Main.hs
     build-depends:
         common,
-        tasty ^>=1.5,
-        tasty-hunit ^>=0.10.1,
-        tasty-smallcheck ^>=0.8.2,
+        tasty,
+        tasty-hunit,
+        tasty-smallcheck,
