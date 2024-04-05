@@ -1,6 +1,5 @@
 import Control.Monad
 import Data.Either
-import Data.Kind
 import Data.Maybe
 import IOSH.IO
 import IOSH.Protocol
@@ -14,7 +13,8 @@ import Polysemy.Conc hiding (Scoped)
 import Polysemy.Exit
 import Polysemy.Fail
 import Polysemy.Internal hiding (run)
-import Polysemy.Output hiding (Output)
+import Polysemy.Output
+import Polysemy.Output qualified as Sem
 import Polysemy.PTY (PTY, PTYEffects, PTYParams (..), Resize, scopedPTYToIOFinal)
 import Polysemy.PTY qualified as PTY
 import Polysemy.Process (ProcessEffects, ProcessParams (..), scopedProcToIOFinal)
@@ -23,32 +23,25 @@ import Polysemy.Scoped
 import Polysemy.Serialize
 import Polysemy.Tagged
 import Polysemy.Transport
-import Polysemy.Untag
 import Polysemy.Wait
 import System.IO
 
-type Stream :: Type
-data Stream = Tunnel | Process
-
-clientMessageReceiver :: (Member Decoder r, Member Fail r, Member Exit r, Member (Tagged 'Tunnel ByteInput) r, Member (Tagged 'Process ByteOutput) r, Member Resize r, Member Close r) => Bool -> Sem r ()
-clientMessageReceiver pty = tag @'Process @ByteOutput go
+clientMessageReceiver :: (Member Fail r, Member Exit r, Member (InputWithEOF ClientMessage) r, Member ByteOutput r, Member Resize r, Member Close r) => Bool -> Sem r ()
+clientMessageReceiver pty = runEffect $ for inputter handle
   where
-    go = tag @'Tunnel @ByteInput . runEffect $ for xInputter handle
-      where
-        handle (Input str) = lift $ output str
-        handle (IOSH.Resize size) = lift $ resize pty size
-        handle (ClientTermination code) = lift $ exit code
-        handle ClientEOF = lift close
+    handle (Input str) = lift $ output str
+    handle (IOSH.Resize size) = lift $ resize pty size
+    handle (ClientTermination code) = lift $ exit code
+    handle ClientEOF = lift close
 
-outputSender :: (Member Race r, Member (Tagged 'Tunnel ByteOutput) r, Member (Tagged 'Process (Tagged 'StandardStream ByteInput)) r, Member (Tagged 'Process (Tagged 'ErrorStream ByteInput)) r, Member (Tagged 'Process ByteInput) r) => Bool -> Sem r ()
+outputSender :: (Member Race r, Member (Sem.Output ServerMessage) r, Member (Tagged 'StandardStream ByteInput) r, Member (Tagged 'ErrorStream ByteInput) r, Member ByteInput r) => Bool -> Sem r ()
 outputSender pty =
-  tag @'Tunnel @ByteOutput $
-    if pty
-      then tag @'Process @ByteInput $ transferStream Output (ServerEOF StandardStream)
-      else
-        race_
-          (tag @'Process @(Tagged 'StandardStream ByteInput) . tag @'StandardStream @ByteInput $ transferStream Output (ServerEOF StandardStream))
-          (tag @'Process @(Tagged 'ErrorStream ByteInput) . tag @'ErrorStream @ByteInput $ transferStream Error (ServerEOF ErrorStream))
+  if pty
+    then transferStream IOSH.Output (ServerEOF StandardStream)
+    else
+      race_
+        (tag @'StandardStream @ByteInput $ transferStream IOSH.Output (ServerEOF StandardStream))
+        (tag @'ErrorStream @ByteInput $ transferStream Error (ServerEOF ErrorStream))
 
 proveNo :: forall e r a. (Member Fail r) => Sem (e : r) a -> Sem r a
 proveNo = interpretH @e (const $ fail "unexpected effect in Sem")
@@ -71,27 +64,13 @@ resize :: (Member Fail r, Member Resize r) => Bool -> Size -> Sem r ()
 resize True size = PTY.resize size
 resize False _ = fail "cannot resize regular process"
 
-sendExitCode :: (Member Wait r, Member ByteOutput r) => Sem r ()
-sendExitCode = wait >>= outputX . ServerTermination
+sendExitCode :: (Member Wait r, Member (Output ServerMessage) r) => Sem r ()
+sendExitCode = wait >>= output . ServerTermination
 
-runTunnel :: (Member ByteInput r, Member ByteOutput r) => InterpretersFor (Tagged 'Tunnel ByteInput : Tagged 'Tunnel ByteOutput : '[]) r
-runTunnel = untagged @'Tunnel @ByteOutput . untagged @'Tunnel @ByteInput
-
-runProcess :: (Member (Scoped PTYParams PTY) r, Member (Scoped ProcessParams Proc.Process) r, Member Fail r) => Handshake -> InterpretersFor (Tagged 'Process ByteOutput : Tagged 'Process ByteInput : Tagged 'Process (Tagged 'StandardStream ByteInput) : Tagged 'Process (Tagged 'ErrorStream ByteInput) : Resize : Wait : Close : '[]) r
-runProcess hshake = exec hshake . subsume_ . untagPorcess
-  where
-    untagPorcess :: Sem (Tagged 'Process ByteOutput : Tagged 'Process ByteInput : Tagged 'Process (Tagged 'StandardStream ByteInput) : Tagged 'Process (Tagged 'ErrorStream ByteInput) : r) a -> Sem (ByteInput : ByteOutput : Tagged 'StandardStream ByteInput : Tagged 'ErrorStream ByteInput : r) a
-    untagPorcess =
-      untagged @'Process @(Tagged 'ErrorStream ByteInput)
-        . untagged @'Process @(Tagged 'StandardStream ByteInput)
-        . untagged @'Process @ByteInput
-        . untagged @'Process @ByteOutput
-        . insertAt @4 @(ByteInput : ByteOutput : Tagged 'StandardStream ByteInput : Tagged 'ErrorStream ByteInput : '[])
-
-ioshd :: (Member Fail r, Member Race r, Member Decoder r, Member Exit r, Member Async r, Member ByteInput r, Member ByteOutput r, Member (Scoped PTYParams PTY) r, Member (Scoped ProcessParams Proc.Process) r) => Sem r ()
+ioshd :: (Member Fail r, Member Race r, Member Exit r, Member Async r, Member (Scoped PTYParams PTY) r, Member (Scoped ProcessParams Proc.Process) r, Member (InputWithEOF Handshake) r, Member (InputWithEOF ClientMessage) r, Member (Output ServerMessage) r) => Sem r ()
 ioshd = do
-  hshake@(Handshake pty _ _ _ _) <- inputX
-  runTunnel . runProcess hshake $ do
+  hshake@(Handshake pty _ _ _ _) <- inputOrFail
+  exec hshake $ do
     clientMessageReceiverAsync <- async $ clientMessageReceiver pty
     result <- race (outputSender pty) (await clientMessageReceiverAsync)
     when (isLeft result) $ sendExitCode >> await_ clientMessageReceiverAsync
@@ -100,6 +79,12 @@ ioshd = do
 main :: IO ()
 main = mapM_ disableBuffering [stdin, stdout] >> run
   where
+    runUnserialized =
+      runDecoder
+        . deserializeInput @ClientMessage
+        . deserializeInput @Handshake
+        . serializeOutput @ServerMessage
+        . raise3Under @Decoder
     run =
       runFinal
         . interpretRace
@@ -111,5 +96,5 @@ main = mapM_ disableBuffering [stdin, stdout] >> run
         . outputToIO stdout
         . exitToIO
         . failToEmbed @IO
-        . runDecoder
+        . runUnserialized
         $ ioshd

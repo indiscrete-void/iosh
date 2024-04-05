@@ -1,9 +1,9 @@
 import Control.Monad
 import Data.Bool
-import Data.Kind
 import IOSH.Maybe
 import IOSH.Options
 import IOSH.Protocol
+import IOSH.Protocol qualified as IOSH
 import Pipes hiding (await)
 import Polysemy hiding (run)
 import Polysemy.Async
@@ -11,56 +11,43 @@ import Polysemy.Async_
 import Polysemy.Close
 import Polysemy.Exit
 import Polysemy.Fail
-import Polysemy.Output hiding (Output)
+import Polysemy.Output
+import Polysemy.Output qualified as Sem
 import Polysemy.Process
-import Polysemy.Scoped
 import Polysemy.Serialize
 import Polysemy.TTY
 import Polysemy.Tagged
 import Polysemy.Transport
-import Polysemy.Untag
 import Polysemy.User
-import Polysemy.Wait
 import System.IO
 import System.Posix.IO
 import Prelude hiding (init)
 
-type Stream :: Type
-data Stream = User | Tunnel
-
-serverMessageReceiver :: (Member Decoder r, Member Fail r, Member Exit r, Member (Tagged 'User (Tagged 'StandardStream ByteOutput)) r, Member (Tagged 'User (Tagged 'ErrorStream ByteOutput)) r, Member (Tagged 'Tunnel ByteInput) r, Member (Tagged 'Tunnel ByteOutput) r, Member (Tagged 'StandardStream Close) r, Member (Tagged 'ErrorStream Close) r) => Sem r ()
-serverMessageReceiver = tag @'Tunnel @ByteInput . tag @'Tunnel @ByteOutput . tag @'User @(Tagged 'StandardStream ByteOutput) . tag @'User @(Tagged 'ErrorStream ByteOutput) . runEffect $ go
+serverMessageReceiver :: (Member Exit r, Member (Tagged 'StandardStream ByteOutput) r, Member (Tagged 'ErrorStream ByteOutput) r, Member (InputWithEOF ServerMessage) r, Member (Output ClientMessage) r, Member (Tagged 'StandardStream Close) r, Member (Tagged 'ErrorStream Close) r) => Sem r ()
+serverMessageReceiver = runEffect $ for inputter handle
   where
-    go = for xInputter handle
-      where
-        handle (Output str) = lift $ tag @'StandardStream @ByteOutput (output str)
-        handle (Error str) = lift $ tag @'ErrorStream @ByteOutput (output str)
-        handle (ServerEOF StandardStream) = lift $ tag @'StandardStream @Close close
-        handle (ServerEOF ErrorStream) = lift $ tag @'ErrorStream @Close close
-        handle (ServerTermination code) = lift $ outputX (ClientTermination code) >> exit code
+    handle (IOSH.Output str) = lift $ tag @'StandardStream @ByteOutput (output str)
+    handle (Error str) = lift $ tag @'ErrorStream @ByteOutput (output str)
+    handle (ServerEOF StandardStream) = lift $ tag @'StandardStream @Close close
+    handle (ServerEOF ErrorStream) = lift $ tag @'ErrorStream @Close close
+    handle (ServerTermination code) = lift $ output (ClientTermination code) >> exit code
 
-ttyOutputSender :: (Member (Tagged 'User ByteInput) r, Member (Tagged 'Tunnel ByteOutput) r) => Sem r ()
-ttyOutputSender = tag @'User @ByteInput . tag @'Tunnel @ByteOutput $ transferStream Input ClientEOF
+ttyOutputSender :: (Member ByteInput r, Member (Sem.Output ClientMessage) r) => Sem r ()
+ttyOutputSender = transferStream Input ClientEOF
 
-init :: forall r. (Member TTY r, Member (Tagged 'Tunnel ByteOutput) r) => Bool -> FilePath -> Args -> Maybe Environment -> Sem r () -> Sem r ()
-init pty path args maybeEnv m = tag @'Tunnel @ByteOutput $ do
+init :: forall r. (Member TTY r, Member (Output Handshake) r, Member (Output ClientMessage) r) => Bool -> FilePath -> Args -> Maybe Environment -> Sem r () -> Sem r ()
+init pty path args maybeEnv m = do
   maybeSize <- whenMaybe pty getSize
-  outputX $ Handshake pty maybeEnv path args maybeSize
-  when pty $ setResizeHandler (outputX . Resize)
+  output $ Handshake pty maybeEnv path args maybeSize
+  when pty $ setResizeHandler (output . Resize)
   if pty
     then rawBracket m'
     else m'
   where
-    m' = raise m
+    m' = raise_ m
 
-runUser :: (Member (Tagged 'StandardStream ByteOutput) r, Member (Tagged 'ErrorStream ByteOutput) r, Member ByteInput r) => InterpretersFor (Tagged 'User ByteInput : Tagged 'User (Tagged 'ErrorStream ByteOutput) : Tagged 'User (Tagged 'StandardStream ByteOutput) : '[]) r
-runUser = untagged @'User @(Tagged 'StandardStream ByteOutput) . untagged @'User @(Tagged 'ErrorStream ByteOutput) . untagged @'User @ByteInput
-
-runTunnel :: forall r. (Member (Scoped ProcessParams Process) r) => String -> InterpretersFor (Tagged 'Tunnel ByteInput : Tagged 'Tunnel ByteOutput : Wait : Close : '[]) r
-runTunnel tunProcCmd = exec (TunnelProcess tunProcCmd) . untag @'Tunnel @ByteOutput . retag @'Tunnel @'StandardStream @ByteInput . raise2Under @(Tagged 'StandardStream ByteInput) . raise2Under @(Tagged 'ErrorStream ByteInput)
-
-iosh :: (Member Async r, Members User r, Member Decoder r, Member Fail r, Member Exit r, Member TTY r, Member (Scoped ProcessParams Process) r) => Options -> Sem r ()
-iosh (Options pty inheritEnv tunProcCmd path args) = runUser . runTunnel tunProcCmd $ do
+iosh :: (Member Async r, Members User r, Member Fail r, Member Exit r, Member TTY r, Member (Output Handshake) r, Member (InputWithEOF ServerMessage) r, Member (Output ClientMessage) r) => Bool -> Bool -> String -> [String] -> Sem r ()
+iosh pty inheritEnv path args = do
   maybeEnv <- whenMaybe inheritEnv (Just <$> getEnv)
   init pty path args maybeEnv $ do
     async_ ttyOutputSender
@@ -70,7 +57,15 @@ iosh (Options pty inheritEnv tunProcCmd path args) = runUser . runTunnel tunProc
 main :: IO ()
 main = execOptionsParser >>= run
   where
-    run =
+    runUnserialized =
+      tag @'StandardStream @ByteInput
+        . runDecoder
+        . deserializeInput @ServerMessage
+        . serializeOutput @Handshake
+        . serializeOutput @ClientMessage
+        . raise3Under @Decoder
+        . raise3Under @ByteInput
+    run (Options pty inheritEnv tunProcCmd path args) =
       runFinal
         . ttyToIOFinal stdInput
         . asyncToIOFinal
@@ -79,5 +74,6 @@ main = execOptionsParser >>= run
         . userToIO stdin stdout stderr
         . exitToIO
         . failToEmbed @IO
-        . runDecoder
-        . iosh
+        . exec (TunnelProcess tunProcCmd)
+        . runUnserialized
+        $ iosh pty inheritEnv path args

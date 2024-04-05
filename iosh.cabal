@@ -39,7 +39,6 @@ library common
         Polysemy.Process
         Polysemy.Wait
         Polysemy.Exit
-        Polysemy.Untag
         Polysemy.Async_
         Polysemy.Close
         IOSH.Maybe
@@ -53,6 +52,7 @@ library common
         pipes,
         cereal,
         async,
+        polysemy-extra,
 
 executable iosh
     import: default
@@ -92,5 +92,3 @@ test-suite tests
         tasty,
         tasty-hunit,
         tasty-smallcheck,
-        bytestring,
-        cereal,

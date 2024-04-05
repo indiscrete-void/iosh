@@ -24,6 +24,7 @@ import Pipes
 import Pipes.Prelude qualified as P
 import Polysemy
 import Polysemy.Fail
+import Polysemy.Output
 import Polysemy.Transport
 import System.Exit
 
@@ -64,8 +65,8 @@ data ServerMessage where
 failTermination :: (Member Fail r) => Sem r a
 failTermination = fail "session ended before termination procedure was done"
 
-transferStream :: (Member ByteInput r, Member ByteOutput r, Serialize msg, Serialize eofMsg) => (ByteString -> msg) -> eofMsg -> Sem r ()
-transferStream f eof = runEffect (inputter >-> P.map f >-> xOutputter) >> outputX eof
+transferStream :: (Member (InputWithEOF a) r, Member (Output msg) r, Member (Output eofMsg) r) => (a -> msg) -> eofMsg -> Sem r ()
+transferStream f eof = runEffect (inputter >-> P.map f >-> outputter) >> output eof
 
 instance Serialize StreamKind
 
