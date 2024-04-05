@@ -29,10 +29,10 @@ type InputWithEOF i = Input (Maybe i)
 inputOrFail :: (Member (InputWithEOF a) r, Member Fail r) => Sem r a
 inputOrFail = input >>= maybe (fail "eof reached") pure
 
-type ByteInput :: (Type -> Type) -> Type -> Type
+type ByteInput :: Effect
 type ByteInput = InputWithEOF ByteString
 
-type ByteOutput :: (Type -> Type) -> Type -> Type
+type ByteOutput :: Effect
 type ByteOutput = Output ByteString
 
 inputter :: (Member (InputWithEOF a) r) => Producer a (Sem r) ()
