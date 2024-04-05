@@ -20,6 +20,7 @@ import Polysemy.Close
 import Polysemy.Input
 import Polysemy.Resource
 import Polysemy.Scoped
+import Polysemy.ScopedBundle
 import Polysemy.Tagged
 import Polysemy.Transport
 import Polysemy.Wait
@@ -48,9 +49,7 @@ exec :: (Member (Scoped ProcessParams Process) r) => ProcessParams -> Interprete
 exec params = scoped @_ @Process params . bundleProcEffects . insertAt @5 @'[Process]
 
 scopedProcToIOFinal :: (Member (Final IO) r) => InterpreterFor (Scoped ProcessParams Process) r
-scopedProcToIOFinal = embedToFinal @IO . runScopedNew go . raiseUnder
-  where
-    go param = procParamsToIOFinal param . runBundle
+scopedProcToIOFinal = embedToFinal @IO . runScopedBundle procParamsToIOFinal . raiseUnder
 
 procParamsToIOFinal :: (Member (Final IO) r) => ProcessParams -> InterpretersFor ProcessEffects r
 procParamsToIOFinal param sem = resourceToIOFinal $ bracket (openProc param) closeProc (raise . go)

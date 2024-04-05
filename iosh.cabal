@@ -33,6 +33,7 @@ common default
 library common
     import: default
     exposed-modules:
+        Polysemy.ScopedBundle
         Polysemy.Transport
         Polysemy.Serialize
         Polysemy.Process

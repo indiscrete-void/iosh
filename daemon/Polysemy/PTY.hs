@@ -20,6 +20,7 @@ import Polysemy.Input
 import Polysemy.Output
 import Polysemy.Resource
 import Polysemy.Scoped
+import Polysemy.ScopedBundle
 import Polysemy.Transport
 import Polysemy.Wait
 import System.IO
@@ -57,9 +58,7 @@ ps2s :: Size -> (Int, Int)
 ps2s = join bimap fromIntegral
 
 scopedPTYToIOFinal :: (Member (Final IO) r) => InterpreterFor (Scoped PTYParams PTY) r
-scopedPTYToIOFinal = runScopedNew go
-  where
-    go param = ptyParamsToIOFinal param . runBundle
+scopedPTYToIOFinal = runScopedBundle ptyParamsToIOFinal
 
 ptyParamsToIOFinal :: (Member (Final IO) r) => PTYParams -> InterpretersFor PTYEffects r
 ptyParamsToIOFinal param sem = resourceToIOFinal $ bracket (embedOpenPty param) embedClosePty (raise . go)
