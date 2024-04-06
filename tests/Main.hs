@@ -1,13 +1,18 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingStrategies #-}
 
+import Data.ByteString qualified as B
 import Data.Kind
+import Data.List (singleton)
+import Data.Maybe
 import Data.Serialize
 import GHC.Generics
 import IOSH.Protocol
 import Polysemy
+import Polysemy.Fail
 import Polysemy.Input
 import Polysemy.Output
+import Polysemy.Serialize
 import Test.Tasty
 import Test.Tasty.HUnit
 
@@ -41,8 +46,37 @@ testHandle =
          in run (runTestIO messageList $ handle @TestMessage output) @?= messageList
     ]
 
+testSerialization :: TestTree
+testSerialization =
+  testGroup
+    "serialization"
+    [ testCase "run [serialize msg] deserialize == msg" $ testSerializeDeserializeIsId (singleton . serialize),
+      testCase "run (split $ serialize msg) deserialzie == msg" $ testSerializeDeserializeIsId (split 3 . serialize),
+      testCase "run (serializeOutput $ output msg) == serialize msg" $
+        let runTest = listToMaybe . fst . run . runOutputList
+         in runTest (serializeOutput @TestMessage $ output msg) @?= Just (serialize msg),
+      testCase "run (deserializeInput $ input) == run deserialize" $
+        let runTest = runM @IO . failToEmbed @IO . runDecoder . runInputList [serialize msg]
+         in do
+              (Just a) <- runTest (deserializeInput @TestMessage input)
+              b <- runTest (deserialize @TestMessage)
+              a @?= b
+    ]
+  where
+    msg = EOF
+    testSerializeDeserializeIsId ef =
+      case run (runFail . runDecoder . runInputList (ef msg) $ deserialize) of
+        Left e -> assertFailure e
+        Right result -> result @?= msg
+    split n str =
+      if B.null str
+        then []
+        else
+          let (part, rest) = B.splitAt n str
+           in part : split n rest
+
 tests :: TestTree
-tests = testGroup "Unit Tests" [testTransferStream, testHandle]
+tests = testGroup "Unit Tests" [testTransferStream, testHandle, testSerialization]
 
 main :: IO ()
 main = defaultMain tests

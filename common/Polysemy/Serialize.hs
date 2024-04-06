@@ -1,6 +1,8 @@
 module Polysemy.Serialize
   ( Decoder,
     runDecoder,
+    deserialize,
+    serialize,
     serializeOutput,
     deserializeInput,
   )
@@ -32,9 +34,12 @@ deserialize = takeState >>= maybe inputOrFail pure >>= go . runGetPartial Serial
     go (Done a left) = putJust left >> pure a
     go (Partial f) = inputOrFail >>= go . f
 
+serialize :: (Serialize a) => a -> ByteString
+serialize = encode
+
 deserializeInput :: forall a r. (Serialize a, Member Decoder r, Member Fail r, Member (InputWithEOF ByteString) r) => InterpreterFor (InputWithEOF a) r
 deserializeInput = interpret \case
   Input -> Just <$> (deserialize @a)
 
 serializeOutput :: forall a r. (Serialize a, Member (Output ByteString) r) => InterpreterFor (Output a) r
-serializeOutput = mapOutput encode
+serializeOutput = mapOutput serialize
