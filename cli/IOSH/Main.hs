@@ -32,7 +32,7 @@ serverMessageReceiver = runEffect $ for inputter handle
     handle (ServerEOF ErrorStream) = lift $ tag @'ErrorStream @Close close
     handle (ServerTermination code) = lift $ output (ClientTermination code) >> exit code
 
-ttyOutputSender :: (Member ByteInput r, Member (Sem.Output ClientMessage) r) => Sem r ()
+ttyOutputSender :: (Member ByteInputWithEOF r, Member (Sem.Output ClientMessage) r) => Sem r ()
 ttyOutputSender = transferStream Input ClientEOF
 
 init :: forall r. (Member TTY r, Member (Output Handshake) r, Member (Output ClientMessage) r) => Bool -> FilePath -> Args -> Maybe Environment -> Sem r () -> Sem r ()
@@ -58,13 +58,13 @@ main :: IO ()
 main = execOptionsParser >>= run
   where
     runUnserialized =
-      tag @'StandardStream @ByteInput
+      tag @'StandardStream @ByteInputWithEOF
         . runDecoder
         . deserializeInput @ServerMessage
         . serializeOutput @Handshake
         . serializeOutput @ClientMessage
         . raise3Under @Decoder
-        . raise3Under @ByteInput
+        . raise3Under @ByteInputWithEOF
     run (Options pty inheritEnv tunProcCmd path args) =
       runFinal
         . ttyToIOFinal stdInput

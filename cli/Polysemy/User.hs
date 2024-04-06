@@ -19,7 +19,7 @@ data Env m a where
   GetEnv :: Env m Environment
 
 type User :: [Effect]
-type User = ByteInput : Tagged 'StandardStream ByteOutput : Tagged 'ErrorStream ByteOutput : Tagged 'StandardStream Close : Tagged 'ErrorStream Close : Env : '[]
+type User = ByteInputWithEOF : Tagged 'StandardStream ByteOutput : Tagged 'ErrorStream ByteOutput : Tagged 'StandardStream Close : Tagged 'ErrorStream Close : Env : '[]
 
 makeSem ''Env
 

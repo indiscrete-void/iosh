@@ -34,24 +34,24 @@ clientMessageReceiver pty = runEffect $ for inputter handle
     handle (ClientTermination code) = lift $ exit code
     handle ClientEOF = lift close
 
-outputSender :: (Member Race r, Member (Sem.Output ServerMessage) r, Member (Tagged 'StandardStream ByteInput) r, Member (Tagged 'ErrorStream ByteInput) r, Member ByteInput r) => Bool -> Sem r ()
+outputSender :: (Member Race r, Member (Sem.Output ServerMessage) r, Member (Tagged 'StandardStream ByteInputWithEOF) r, Member (Tagged 'ErrorStream ByteInputWithEOF) r, Member ByteInputWithEOF r) => Bool -> Sem r ()
 outputSender pty =
   if pty
     then transferStream IOSH.Output (ServerEOF StandardStream)
     else
       race_
-        (tag @'StandardStream @ByteInput $ transferStream IOSH.Output (ServerEOF StandardStream))
-        (tag @'ErrorStream @ByteInput $ transferStream Error (ServerEOF ErrorStream))
+        (tag @'StandardStream @ByteInputWithEOF $ transferStream IOSH.Output (ServerEOF StandardStream))
+        (tag @'ErrorStream @ByteInputWithEOF $ transferStream Error (ServerEOF ErrorStream))
 
 proveNo :: forall e r a. (Member Fail r) => Sem (e : r) a -> Sem r a
 proveNo = interpretH @e (const $ fail "unexpected effect in Sem")
 
 exec :: forall r a. (Member (Scoped PTYParams PTY) r, Member (Scoped ProcessParams Proc.Process) r, Member Fail r) => Handshake -> Sem (Append PTYEffects (Append ProcessEffects r)) a -> Sem r a
 exec hshake m = case hshake of
-  (Handshake False sessionEnv path args Nothing) -> go . proveNo @ByteInput . proveNo @Resize $ m'
+  (Handshake False sessionEnv path args Nothing) -> go . proveNo @ByteInputWithEOF . proveNo @Resize $ m'
     where
       go = Proc.exec (InternalProcess sessionEnv path args)
-  (Handshake True sessionEnv path args maybeSize) -> go . proveNo @(Tagged 'ErrorStream ByteInput) . proveNo @(Tagged 'StandardStream ByteInput) $ m'
+  (Handshake True sessionEnv path args maybeSize) -> go . proveNo @(Tagged 'ErrorStream ByteInputWithEOF) . proveNo @(Tagged 'StandardStream ByteInputWithEOF) $ m'
     where
       size = fromMaybe (80, 24) maybeSize
       go = PTY.exec (PTYParams sessionEnv path args size)

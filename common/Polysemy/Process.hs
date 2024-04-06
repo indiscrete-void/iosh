@@ -32,7 +32,7 @@ type ProcessParams :: Type
 data ProcessParams = InternalProcess (Maybe Environment) FilePath [String] | TunnelProcess String
 
 type ProcessEffects :: [Effect]
-type ProcessEffects = ByteOutput : Tagged 'StandardStream ByteInput : Tagged 'ErrorStream ByteInput : Wait : Close : '[]
+type ProcessEffects = ByteOutput : Tagged 'StandardStream ByteInputWithEOF : Tagged 'ErrorStream ByteInputWithEOF : Wait : Close : '[]
 
 type Process :: Effect
 type Process = Bundle ProcessEffects
@@ -41,8 +41,8 @@ bundleProcEffects :: (Member Process r) => InterpretersFor ProcessEffects r
 bundleProcEffects =
   sendBundle @Close @ProcessEffects
     . sendBundle @Wait @ProcessEffects
-    . sendBundle @(Tagged 'ErrorStream ByteInput) @ProcessEffects
-    . sendBundle @(Tagged 'StandardStream ByteInput) @ProcessEffects
+    . sendBundle @(Tagged 'ErrorStream ByteInputWithEOF) @ProcessEffects
+    . sendBundle @(Tagged 'StandardStream ByteInputWithEOF) @ProcessEffects
     . sendBundle @ByteOutput @ProcessEffects
 
 exec :: (Member (Scoped ProcessParams Process) r) => ProcessParams -> InterpretersFor ProcessEffects r
@@ -73,7 +73,7 @@ procToIO (i, o, e, ph) =
     . (inputToIO o . untag @'StandardStream)
     . outputToIO i
 
-maybeInputToIO :: (Member (Embed IO) r) => Maybe Handle -> InterpreterFor ByteInput r
+maybeInputToIO :: (Member (Embed IO) r) => Maybe Handle -> InterpreterFor ByteInputWithEOF r
 maybeInputToIO mh = interpret $ \case
   Input -> do
     h <- unmaybeHandle @IO mh

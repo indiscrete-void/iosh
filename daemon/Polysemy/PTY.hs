@@ -36,7 +36,7 @@ data Resize m a where
   Resize :: Size -> Resize m ()
 
 type PTYEffects :: [Effect]
-type PTYEffects = Resize : ByteInput : ByteOutput : Wait : Close : '[]
+type PTYEffects = Resize : ByteInputWithEOF : ByteOutput : Wait : Close : '[]
 
 type PTY :: Effect
 type PTY = Bundle PTYEffects
@@ -48,7 +48,7 @@ bundlePTYEffects =
   sendBundle @Close @PTYEffects
     . sendBundle @Wait @PTYEffects
     . sendBundle @ByteOutput @PTYEffects
-    . sendBundle @ByteInput @PTYEffects
+    . sendBundle @ByteInputWithEOF @PTYEffects
     . sendBundle @Resize @PTYEffects
 
 exec :: (Member (Scoped PTYParams PTY) r) => PTYParams -> InterpretersFor PTYEffects r
@@ -79,7 +79,7 @@ closeToPTYIO :: (Member (Embed IO) r) => Pty -> InterpreterFor Close r
 closeToPTYIO pty = interpret $ \case
   Close -> embed $ closePty pty
 
-inputToPtyIO :: (Member (Embed IO) r) => Pty -> InterpreterFor ByteInput r
+inputToPtyIO :: (Member (Embed IO) r) => Pty -> InterpreterFor ByteInputWithEOF r
 inputToPtyIO pty = interpret $ \case
   Input -> embed $ threadWaitReadPty pty >> ioErrorToNothing (readPty pty)
 

@@ -1,6 +1,6 @@
 module Polysemy.Transport
   ( InputWithEOF,
-    ByteInput,
+    ByteInputWithEOF,
     ByteOutput,
     inputter,
     outputter,
@@ -29,8 +29,8 @@ type InputWithEOF i = Input (Maybe i)
 inputOrFail :: (Member (InputWithEOF a) r, Member Fail r) => Sem r a
 inputOrFail = input >>= maybe (fail "eof reached") pure
 
-type ByteInput :: Effect
-type ByteInput = InputWithEOF ByteString
+type ByteInputWithEOF :: Effect
+type ByteInputWithEOF = InputWithEOF ByteString
 
 type ByteOutput :: Effect
 type ByteOutput = Output ByteString
@@ -44,7 +44,7 @@ outputter = P.mapM_ output
 ioErrorToNothing :: IO a -> IO (Maybe a)
 ioErrorToNothing m = either (const Nothing) Just <$> try @IOError m
 
-inputToIO :: (Member (Embed IO) r) => Handle -> InterpreterFor ByteInput r
+inputToIO :: (Member (Embed IO) r) => Handle -> InterpreterFor ByteInputWithEOF r
 inputToIO h = interpret $ \case
   Input -> embed $ eofToNothing <$> hGetSome h 8192
 

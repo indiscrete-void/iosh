@@ -23,7 +23,7 @@ type Decoder = State (Maybe ByteString)
 runDecoder :: Sem (Decoder : r) a -> Sem r a
 runDecoder = evalState Nothing
 
-deserialize :: forall a r. (Member Decoder r, Serialize a, Member Fail r, Member ByteInput r) => Sem r a
+deserialize :: forall a r. (Member Decoder r, Serialize a, Member Fail r, Member ByteInputWithEOF r) => Sem r a
 deserialize = takeState >>= maybe inputOrFail pure >>= go . runGetPartial Serial.get
   where
     takeState = State.get <* State.put @(Maybe ByteString) Nothing
