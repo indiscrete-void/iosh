@@ -91,4 +91,3 @@ test-suite tests
         cereal,
         tasty,
         tasty-hunit,
-        tasty-smallcheck,
