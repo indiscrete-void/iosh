@@ -49,7 +49,7 @@ testHandle =
 testSerialization :: TestTree
 testSerialization =
   testGroup
-    "serialization"
+    "Serialization"
     [ testCase "run [serialize msg] deserialize == msg" $ testSerializeDeserializeIsId (singleton . serialize),
       testCase "run (split $ serialize msg) deserialzie == msg" $ testSerializeDeserializeIsId (split 3 . serialize),
       testCase "run (serializeOutput $ output msg) == serialize msg" $
@@ -76,7 +76,7 @@ testSerialization =
            in part : split n rest
 
 tests :: TestTree
-tests = testGroup "Unit Tests" [testTransferStream, testHandle, testSerialization]
+tests = testGroup "Unit Tests" [testSerialization, testTransferStream, testHandle]
 
 main :: IO ()
 main = defaultMain tests
