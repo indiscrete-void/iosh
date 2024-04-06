@@ -13,7 +13,7 @@ common default
         DataKinds FlexibleContexts GADTs LambdaCase PolyKinds RankNTypes
         ScopedTypeVariables TypeApplications TypeOperators TypeFamilies
         ImportQualifiedPost StandaloneKindSignatures AllowAmbiguousTypes
-        TemplateHaskell
+        TemplateHaskell BlockArguments
 
     ghc-options:
         -fdefer-typed-holes -Weverything -Wno-missing-safe-haskell-mode

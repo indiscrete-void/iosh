@@ -34,7 +34,7 @@ rawBracket :: (Member TTY r) => Sem r a -> Sem r a
 rawBracket m = attributeBracket $ setRawAttributes >> m
 
 ttyToIOFinal :: (Member (Final IO) r) => Fd -> InterpreterFor TTY r
-ttyToIOFinal term = interpretFinal @IO $ \case
+ttyToIOFinal term = interpretFinal @IO \case
   (SetResizeHandler f) -> wrapHandlerS >>= liftS . go
     where
       go f' = void $ installHandler sigWINCH (Catch f') Nothing

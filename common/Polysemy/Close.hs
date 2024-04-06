@@ -15,5 +15,5 @@ data Close m a where
 makeSem ''Close
 
 closeToIO :: (Member (Embed IO) r) => Handle -> InterpreterFor Close r
-closeToIO h = interpret $ \case
+closeToIO h = interpret \case
   Close -> embed $ hClose h

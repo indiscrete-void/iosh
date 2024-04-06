@@ -33,5 +33,5 @@ userToIO i o e =
     . inputToIO i
 
 envToIO :: (Member (Embed IO) r) => InterpreterFor Env r
-envToIO = interpret $ \case
+envToIO = interpret \case
   GetEnv -> embed getEnvironment

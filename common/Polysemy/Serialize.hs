@@ -33,7 +33,7 @@ deserialize = takeState >>= maybe inputOrFail pure >>= go . runGetPartial Serial
     go (Partial f) = inputOrFail >>= go . f
 
 deserializeInput :: forall a r. (Serialize a, Member Decoder r, Member Fail r, Member (InputWithEOF ByteString) r) => InterpreterFor (InputWithEOF a) r
-deserializeInput = interpret $ \case
+deserializeInput = interpret \case
   Input -> Just <$> (deserialize @a)
 
 serializeOutput :: forall a r. (Serialize a, Member (Output ByteString) r) => InterpreterFor (Output a) r

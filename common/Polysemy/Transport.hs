@@ -45,9 +45,9 @@ ioErrorToNothing :: IO a -> IO (Maybe a)
 ioErrorToNothing m = either (const Nothing) Just <$> try @IOError m
 
 inputToIO :: (Member (Embed IO) r) => Handle -> InterpreterFor ByteInputWithEOF r
-inputToIO h = interpret $ \case
+inputToIO h = interpret \case
   Input -> embed $ eofToNothing <$> hGetSome h 8192
 
 outputToIO :: (Member (Embed IO) r) => Handle -> InterpreterFor ByteOutput r
-outputToIO h = interpret $ \case
+outputToIO h = interpret \case
   (Output str) -> embed $ hPut h str

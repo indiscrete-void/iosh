@@ -48,7 +48,7 @@ init pty path args maybeEnv m = do
 iosh :: (Member Async r, Members User r, Member Fail r, Member Exit r, Member TTY r, Member (Output Handshake) r, Member (InputWithEOF ServerMessage) r, Member (Output ClientMessage) r) => Bool -> Bool -> String -> [String] -> Sem r ()
 iosh pty inheritEnv path args = do
   maybeEnv <- whenMaybe inheritEnv (Just <$> getEnv)
-  init pty path args maybeEnv $ do
+  init pty path args maybeEnv do
     async_ ttyOutputSender
     serverMessageReceiver
   failTermination

@@ -69,7 +69,7 @@ sendExitCode = wait >>= output . ServerTermination
 ioshd :: (Member Fail r, Member Race r, Member Exit r, Member Async r, Member (Scoped PTYParams PTY) r, Member (Scoped ProcessParams Proc.Process) r, Member (InputWithEOF Handshake) r, Member (InputWithEOF ClientMessage) r, Member (Output ServerMessage) r) => Sem r ()
 ioshd = do
   hshake@(Handshake pty _ _ _ _) <- inputOrFail
-  exec hshake $ do
+  exec hshake do
     clientMessageReceiverAsync <- async $ clientMessageReceiver pty
     result <- race (outputSender pty) (await clientMessageReceiverAsync)
     when (isLeft result) $ sendExitCode >> await_ clientMessageReceiverAsync

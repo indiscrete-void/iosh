@@ -15,5 +15,5 @@ data Exit m a where
 makeSem ''Exit
 
 exitToIO :: (Member (Embed IO) r) => InterpreterFor Exit r
-exitToIO = interpret $ \case
+exitToIO = interpret \case
   (Exit code) -> embed $ exitWith code

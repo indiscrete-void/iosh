@@ -76,17 +76,17 @@ ptyToIO pty ph =
     . resizeToIO pty
 
 closeToPTYIO :: (Member (Embed IO) r) => Pty -> InterpreterFor Close r
-closeToPTYIO pty = interpret $ \case
+closeToPTYIO pty = interpret \case
   Close -> embed $ closePty pty
 
 inputToPtyIO :: (Member (Embed IO) r) => Pty -> InterpreterFor ByteInputWithEOF r
-inputToPtyIO pty = interpret $ \case
+inputToPtyIO pty = interpret \case
   Input -> embed $ threadWaitReadPty pty >> ioErrorToNothing (readPty pty)
 
 outputToPtyIO :: (Member (Embed IO) r) => Pty -> InterpreterFor ByteOutput r
-outputToPtyIO pty = interpret $ \case
+outputToPtyIO pty = interpret \case
   Output str -> embed $ threadWaitWritePty pty >> writePty pty str
 
 resizeToIO :: (Member (Embed IO) r) => Pty -> InterpreterFor Resize r
-resizeToIO pty = interpret $ \case
+resizeToIO pty = interpret \case
   Resize size -> embed $ resizePty pty (ps2s size)

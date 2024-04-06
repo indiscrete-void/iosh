@@ -11,5 +11,5 @@ data Wait m a where
 makeSem ''Wait
 
 waitToIO :: (Member (Embed IO) r) => ProcessHandle -> InterpreterFor Wait r
-waitToIO ph = interpret $ \case
+waitToIO ph = interpret \case
   Wait -> embed $ waitForProcess ph

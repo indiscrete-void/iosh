@@ -7,4 +7,4 @@ import Polysemy.Opaque
 import Polysemy.Scoped
 
 runScopedBundle :: (KnownList r') => (forall q. param -> InterpretersFor r' (Opaque q : r)) -> Sem (Scoped param (Bundle r') : r) a -> Sem r a
-runScopedBundle f = runScopedNew (\param -> f param . runBundle)
+runScopedBundle f = runScopedNew \param -> f param . runBundle

@@ -74,7 +74,7 @@ procToIO (i, o, e, ph) =
     . outputToIO i
 
 maybeInputToIO :: (Member (Embed IO) r) => Maybe Handle -> InterpreterFor ByteInputWithEOF r
-maybeInputToIO mh = interpret $ \case
+maybeInputToIO mh = interpret \case
   Input -> do
     h <- unmaybeHandle @IO mh
     inputToIO h input
