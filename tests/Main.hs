@@ -5,7 +5,7 @@ import Data.Kind
 import Data.Serialize
 import GHC.Generics
 import IOSH.Protocol
-import Polysemy qualified as Sem
+import Polysemy
 import Polysemy.Input
 import Polysemy.Output
 import Test.Tasty
@@ -19,6 +19,9 @@ data TestMessage where
 
 instance Serialize TestMessage
 
+runTestIO :: [i] -> Sem (Input (Maybe i) : Output o : r) a -> Sem r [o]
+runTestIO inputList sem = fst <$> runOutputList (runInputList inputList sem)
+
 testTransferStream :: TestTree
 testTransferStream =
   testGroup
@@ -26,12 +29,20 @@ testTransferStream =
     [ testCase "Outputs all input values wrapped in passed f and passed message after EOF" $
         let inputList = ["a", "b", "c"]
             outputList = map Data inputList ++ [EOF]
-            run = fst . Sem.run . runOutputList . runInputList inputList
-         in run (transferStream Data EOF) @?= outputList
+         in run (runTestIO inputList $ transferStream Data EOF) @?= outputList
+    ]
+
+testHandle :: TestTree
+testHandle =
+  testGroup
+    "handle"
+    [ testCase "Calls handler function with received message" $
+        let messageList = [Data "test", EOF]
+         in run (runTestIO messageList $ handle @TestMessage output) @?= messageList
     ]
 
 tests :: TestTree
-tests = testGroup "Unit Tests" [testTransferStream]
+tests = testGroup "Unit Tests" [testTransferStream, testHandle]
 
 main :: IO ()
 main = defaultMain tests
