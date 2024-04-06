@@ -4,7 +4,6 @@ import IOSH.Maybe
 import IOSH.Options
 import IOSH.Protocol
 import IOSH.Protocol qualified as IOSH
-import Pipes hiding (await)
 import Polysemy hiding (run)
 import Polysemy.Async
 import Polysemy.Async_
@@ -24,13 +23,13 @@ import System.Posix.IO
 import Prelude hiding (init)
 
 serverMessageReceiver :: (Member Exit r, Member (Tagged 'StandardStream ByteOutput) r, Member (Tagged 'ErrorStream ByteOutput) r, Member (InputWithEOF ServerMessage) r, Member (Output ClientMessage) r, Member (Tagged 'StandardStream Close) r, Member (Tagged 'ErrorStream Close) r) => Sem r ()
-serverMessageReceiver = runEffect $ for inputter handle
+serverMessageReceiver = handle go
   where
-    handle (IOSH.Output str) = lift $ tag @'StandardStream @ByteOutput (output str)
-    handle (Error str) = lift $ tag @'ErrorStream @ByteOutput (output str)
-    handle (ServerEOF StandardStream) = lift $ tag @'StandardStream @Close close
-    handle (ServerEOF ErrorStream) = lift $ tag @'ErrorStream @Close close
-    handle (ServerTermination code) = lift $ output (ClientTermination code) >> exit code
+    go (IOSH.Output str) = tag @'StandardStream @ByteOutput (output str)
+    go (Error str) = tag @'ErrorStream @ByteOutput (output str)
+    go (ServerEOF StandardStream) = tag @'StandardStream @Close close
+    go (ServerEOF ErrorStream) = tag @'ErrorStream @Close close
+    go (ServerTermination code) = output (ClientTermination code) >> exit code
 
 ttyOutputSender :: (Member ByteInputWithEOF r, Member (Sem.Output ClientMessage) r) => Sem r ()
 ttyOutputSender = transferStream Input ClientEOF

@@ -12,6 +12,7 @@ module IOSH.Protocol
     failTermination,
     transferStream,
     StreamKind (..),
+    handle,
   )
 where
 
@@ -67,6 +68,9 @@ failTermination = fail "session ended before termination procedure was done"
 
 transferStream :: (Member (InputWithEOF a) r, Member (Output msg) r, Member (Output eofMsg) r) => (a -> msg) -> eofMsg -> Sem r ()
 transferStream f eof = runEffect (inputter >-> P.map f >-> outputter) >> output eof
+
+handle :: (Member (InputWithEOF msg) r) => (msg -> Sem r ()) -> Sem r ()
+handle f = runEffect $ for inputter (lift . f)
 
 instance Serialize StreamKind
 

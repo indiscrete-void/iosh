@@ -4,7 +4,6 @@ import Data.Maybe
 import IOSH.IO
 import IOSH.Protocol
 import IOSH.Protocol qualified as IOSH
-import Pipes hiding (await)
 import Polysemy hiding (run)
 import Polysemy.Async
 import Polysemy.Async_
@@ -27,12 +26,12 @@ import Polysemy.Wait
 import System.IO
 
 clientMessageReceiver :: (Member Fail r, Member Exit r, Member (InputWithEOF ClientMessage) r, Member ByteOutput r, Member Resize r, Member Close r) => Bool -> Sem r ()
-clientMessageReceiver pty = runEffect $ for inputter handle
+clientMessageReceiver pty = handle go
   where
-    handle (Input str) = lift $ output str
-    handle (IOSH.Resize size) = lift $ resize pty size
-    handle (ClientTermination code) = lift $ exit code
-    handle ClientEOF = lift close
+    go (Input str) = output str
+    go (IOSH.Resize size) = resize pty size
+    go (ClientTermination code) = exit code
+    go ClientEOF = close
 
 outputSender :: (Member Race r, Member (Sem.Output ServerMessage) r, Member (Tagged 'StandardStream ByteInputWithEOF) r, Member (Tagged 'ErrorStream ByteInputWithEOF) r, Member ByteInputWithEOF r) => Bool -> Sem r ()
 outputSender pty =

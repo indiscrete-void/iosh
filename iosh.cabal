@@ -28,7 +28,6 @@ common default
     build-depends:
         base ^>=4.16.4.0,
         polysemy,
-        pipes,
 
 library common
     import: default
