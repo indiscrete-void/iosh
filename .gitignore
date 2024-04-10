@@ -5,6 +5,7 @@
 
 !iosh.cabal
 !default.nix
+!shell.nix
 
 !common
 !daemon
