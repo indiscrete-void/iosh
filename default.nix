@@ -1,17 +1,15 @@
 let
-    sources = {
-        haskellNix = builtins.fetchTarball "https://github.com/input-output-hk/haskell.nix/archive/master.tar.gz";
-    };
+  pkgs = import <nixpkgs> {};
+in
+pkgs.haskellPackages.developPackage {
+  root = ./.;
+  source-overrides = {
+    polysemy-transport = ../polysemy-transport;
+  };
 
-    haskellNix = import sources.haskellNix {};
-    pkgs = import
-        haskellNix.sources.nixpkgs-2311
-        haskellNix.nixpkgsArgs;
-in pkgs.haskell-nix.project {
-    src = pkgs.haskell-nix.haskellLib.cleanGit {
-        name = "iosh";
-        src = ./.;
-    };
-
-    compiler-nix-name = "ghc928";
+  modifier = drv:
+    pkgs.haskell.lib.addBuildTools drv (with pkgs.haskellPackages;
+      [ cabal-install
+        haskell-language-server
+      ]);
 }
