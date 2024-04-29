@@ -7,6 +7,7 @@ import IOSH.Protocol qualified as IOSH
 import Polysemy hiding (run)
 import Polysemy.Async
 import Polysemy.Async_
+import Polysemy.Close
 import Polysemy.Conc hiding (Scoped)
 import Polysemy.Exit
 import Polysemy.Fail
@@ -20,10 +21,9 @@ import Polysemy.Process qualified as Proc
 import Polysemy.Scoped
 import Polysemy.Serialize
 import Polysemy.Tagged
+import Polysemy.Transport
 import Polysemy.Wait
 import System.IO
-import Transport.Close
-import Transport.Polysemy
 
 clientMessageReceiver :: (Member Fail r, Member Exit r, Member (InputWithEOF ClientMessage) r, Member ByteOutput r, Member Resize r, Member Close r) => Bool -> Sem r ()
 clientMessageReceiver pty = handle go

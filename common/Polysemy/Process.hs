@@ -15,17 +15,17 @@ import IOSH.IO
 import IOSH.Protocol (Environment, StreamKind (..))
 import Polysemy
 import Polysemy.Bundle
+import Polysemy.Close
 import Polysemy.Input
 import Polysemy.Resource
 import Polysemy.Scoped
 import Polysemy.ScopedBundle
 import Polysemy.Tagged
+import Polysemy.Transport
 import Polysemy.Wait
 import System.IO
 import System.Process
-import Transport.Close
 import Transport.Maybe
-import Transport.Polysemy
 import Prelude hiding (read)
 
 type ProcessParams :: Type

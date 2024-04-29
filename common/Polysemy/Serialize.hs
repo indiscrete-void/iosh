@@ -16,7 +16,7 @@ import Polysemy.Fail
 import Polysemy.Input
 import Polysemy.Output
 import Polysemy.State as State
-import Transport.Polysemy
+import Polysemy.Transport
 
 type Decoder :: Polysemy.Effect
 type Decoder = State (Maybe ByteString)

@@ -15,17 +15,17 @@ import Data.Kind
 import IOSH.Protocol hiding (Input, Output, Resize)
 import Polysemy
 import Polysemy.Bundle
+import Polysemy.Close
 import Polysemy.Input
 import Polysemy.Output
 import Polysemy.Resource
 import Polysemy.Scoped
 import Polysemy.ScopedBundle
+import Polysemy.Transport
 import Polysemy.Wait
 import System.IO
 import System.Posix.Pty
 import System.Process
-import Transport.Close
-import Transport.Polysemy
 import Transport.Maybe
 import Prelude hiding (read)
 

@@ -8,11 +8,11 @@ where
 import IOSH.IO
 import IOSH.Protocol
 import Polysemy
+import Polysemy.Close
 import Polysemy.Tagged
+import Polysemy.Transport
 import System.Environment hiding (getEnv)
 import System.IO
-import Transport.Close
-import Transport.Polysemy
 import Prelude hiding (read)
 
 type Env :: Effect
