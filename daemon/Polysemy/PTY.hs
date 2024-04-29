@@ -9,7 +9,6 @@ module Polysemy.PTY
   )
 where
 
-import Control.Exception hiding (bracket)
 import Control.Monad
 import Data.Bifunctor
 import Data.Kind
@@ -27,6 +26,7 @@ import System.Posix.Pty
 import System.Process
 import Transport.Close
 import Transport.Polysemy
+import Transport.Maybe
 import Prelude hiding (read)
 
 type PTYParams :: Type
@@ -79,9 +79,6 @@ ptyToIO pty ph =
 closeToPTYIO :: (Member (Embed IO) r) => Pty -> InterpreterFor Close r
 closeToPTYIO pty = interpret \case
   Close -> embed $ closePty pty
-
-ioErrorToNothing :: IO a -> IO (Maybe a)
-ioErrorToNothing m = either (const Nothing) Just <$> try @IOError m
 
 inputToPtyIO :: (Member (Embed IO) r) => Pty -> InterpreterFor ByteInputWithEOF r
 inputToPtyIO pty = interpret \case
