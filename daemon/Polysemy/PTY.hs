@@ -9,23 +9,24 @@ module Polysemy.PTY
   )
 where
 
+import Control.Exception hiding (bracket)
 import Control.Monad
 import Data.Bifunctor
 import Data.Kind
 import IOSH.Protocol hiding (Input, Output, Resize)
 import Polysemy
 import Polysemy.Bundle
-import Polysemy.Close
 import Polysemy.Input
 import Polysemy.Output
 import Polysemy.Resource
 import Polysemy.Scoped
 import Polysemy.ScopedBundle
-import Polysemy.Transport
 import Polysemy.Wait
 import System.IO
 import System.Posix.Pty
 import System.Process
+import Transport.Close
+import Transport.Polysemy
 import Prelude hiding (read)
 
 type PTYParams :: Type
@@ -36,7 +37,7 @@ data Resize m a where
   Resize :: Size -> Resize m ()
 
 type PTYEffects :: [Effect]
-type PTYEffects = Resize : ByteInputWithEOF : ByteOutput : Wait : Close : '[]
+type PTYEffects = Resize ': ByteInputWithEOF ': ByteOutput ': Wait ': Close ': '[]
 
 type PTY :: Effect
 type PTY = Bundle PTYEffects
@@ -78,6 +79,9 @@ ptyToIO pty ph =
 closeToPTYIO :: (Member (Embed IO) r) => Pty -> InterpreterFor Close r
 closeToPTYIO pty = interpret \case
   Close -> embed $ closePty pty
+
+ioErrorToNothing :: IO a -> IO (Maybe a)
+ioErrorToNothing m = either (const Nothing) Just <$> try @IOError m
 
 inputToPtyIO :: (Member (Embed IO) r) => Pty -> InterpreterFor ByteInputWithEOF r
 inputToPtyIO pty = interpret \case

@@ -12,27 +12,27 @@ import Control.Monad
 import Data.Kind
 import Data.Maybe
 import IOSH.IO
-import IOSH.Maybe
 import IOSH.Protocol (Environment, StreamKind (..))
 import Polysemy
 import Polysemy.Bundle
-import Polysemy.Close
 import Polysemy.Input
 import Polysemy.Resource
 import Polysemy.Scoped
 import Polysemy.ScopedBundle
 import Polysemy.Tagged
-import Polysemy.Transport
 import Polysemy.Wait
 import System.IO
 import System.Process
+import Transport.Close
+import Transport.Maybe
+import Transport.Polysemy
 import Prelude hiding (read)
 
 type ProcessParams :: Type
 data ProcessParams = InternalProcess (Maybe Environment) FilePath [String] | TunnelProcess String
 
 type ProcessEffects :: [Effect]
-type ProcessEffects = ByteOutput : Tagged 'StandardStream ByteInputWithEOF : Tagged 'ErrorStream ByteInputWithEOF : Wait : Close : '[]
+type ProcessEffects = ByteOutput ': Tagged 'StandardStream ByteInputWithEOF ': Tagged 'ErrorStream ByteInputWithEOF ': Wait ': Close ': '[]
 
 type Process :: Effect
 type Process = Bundle ProcessEffects
@@ -70,14 +70,14 @@ procToIO (i, o, e, ph) =
   closeToIO i
     . waitToIO ph
     . (maybeInputToIO e . untag @'ErrorStream)
-    . (inputToIO o . untag @'StandardStream)
+    . (inputToIO bufferSize o . untag @'StandardStream)
     . outputToIO i
 
 maybeInputToIO :: (Member (Embed IO) r) => Maybe Handle -> InterpreterFor ByteInputWithEOF r
 maybeInputToIO mh = interpret \case
   Input -> do
     h <- unmaybeHandle @IO mh
-    inputToIO h input
+    inputToIO bufferSize h input
 
 unmaybeHandle :: forall m r a. (MonadFail m, Member (Embed m) r) => Maybe a -> Sem r a
 unmaybeHandle = embed @m . maybeFail "required process stream isn't piped"

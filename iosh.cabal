@@ -26,21 +26,18 @@ common default
         ghc-options: -Werror
 
     build-depends:
-        base ^>=4.16.4.0,
+        base ^>=4.17.2.1,
         polysemy,
 
 library common
     import: default
     exposed-modules:
         Polysemy.ScopedBundle
-        Polysemy.Transport
         Polysemy.Serialize
         Polysemy.Process
         Polysemy.Wait
         Polysemy.Exit
         Polysemy.Async_
-        Polysemy.Close
-        IOSH.Maybe
         IOSH.Protocol
         IOSH.IO
 
@@ -51,7 +48,7 @@ library common
         pipes,
         cereal,
         async,
-        polysemy-extra,
+        polysemy-transport,
 
 executable iosh
     import: default
@@ -67,6 +64,7 @@ executable iosh
         unix,
         terminal-size,
         optparse-applicative,
+        polysemy-transport,
 
 executable ioshd
     import: default
@@ -80,6 +78,7 @@ executable ioshd
         polysemy-conc,
         process,
         posix-pty,
+        polysemy-transport,
 
 test-suite tests
     import: default

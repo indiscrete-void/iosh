@@ -7,7 +7,6 @@ import IOSH.Protocol qualified as IOSH
 import Polysemy hiding (run)
 import Polysemy.Async
 import Polysemy.Async_
-import Polysemy.Close
 import Polysemy.Conc hiding (Scoped)
 import Polysemy.Exit
 import Polysemy.Fail
@@ -21,9 +20,10 @@ import Polysemy.Process qualified as Proc
 import Polysemy.Scoped
 import Polysemy.Serialize
 import Polysemy.Tagged
-import Polysemy.Transport
 import Polysemy.Wait
 import System.IO
+import Transport.Close
+import Transport.Polysemy
 
 clientMessageReceiver :: (Member Fail r, Member Exit r, Member (InputWithEOF ClientMessage) r, Member ByteOutput r, Member Resize r, Member Close r) => Bool -> Sem r ()
 clientMessageReceiver pty = handle go
@@ -42,7 +42,7 @@ outputSender pty =
         (tag @'StandardStream @ByteInputWithEOF $ transferStream IOSH.Output (ServerEOF StandardStream))
         (tag @'ErrorStream @ByteInputWithEOF $ transferStream Error (ServerEOF ErrorStream))
 
-proveNo :: forall e r a. (Member Fail r) => Sem (e : r) a -> Sem r a
+proveNo :: forall e r a. (Member Fail r) => Sem (e ': r) a -> Sem r a
 proveNo = interpretH @e (const $ fail "unexpected effect in Sem")
 
 exec :: forall r a. (Member (Scoped PTYParams PTY) r, Member (Scoped ProcessParams Proc.Process) r, Member Fail r) => Handshake -> Sem (Append PTYEffects (Append ProcessEffects r)) a -> Sem r a
@@ -91,7 +91,7 @@ main = mapM_ disableBuffering [stdin, stdout] >> run
         . embedToFinal @IO
         . scopedProcToIOFinal
         . scopedPTYToIOFinal
-        . inputToIO stdin
+        . inputToIO bufferSize stdin
         . outputToIO stdout
         . exitToIO
         . failToEmbed @IO

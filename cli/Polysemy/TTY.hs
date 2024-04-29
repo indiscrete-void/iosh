@@ -12,13 +12,13 @@ where
 import Control.Exception
 import Control.Monad
 import Data.Int
-import IOSH.Maybe
 import IOSH.Protocol
 import Polysemy
 import Polysemy.Final
 import System.Console.Terminal.Size
 import System.Posix.ByteString
 import System.Posix.Signals.Exts
+import Transport.Maybe
 import Prelude hiding (read)
 
 type TTY :: Effect

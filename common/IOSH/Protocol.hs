@@ -26,8 +26,8 @@ import Pipes.Prelude qualified as P
 import Polysemy
 import Polysemy.Fail
 import Polysemy.Output
-import Polysemy.Transport
 import System.Exit
+import Transport.Polysemy
 
 type StreamKind :: Type
 data StreamKind = StandardStream | ErrorStream
