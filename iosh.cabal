@@ -28,12 +28,12 @@ common default
     build-depends:
         base ^>=4.17.2.1,
         polysemy,
+        polysemy-transport,
 
 library common
     import: default
     exposed-modules:
         Polysemy.ScopedBundle
-        Polysemy.Serialize
         Polysemy.Process
         Polysemy.Wait
         Polysemy.Exit
@@ -48,7 +48,6 @@ library common
         pipes,
         cereal,
         async,
-        polysemy-transport,
 
 executable iosh
     import: default
@@ -64,7 +63,6 @@ executable iosh
         unix,
         terminal-size,
         optparse-applicative,
-        polysemy-transport,
 
 executable ioshd
     import: default
@@ -78,7 +76,6 @@ executable ioshd
         polysemy-conc,
         process,
         posix-pty,
-        polysemy-transport,
 
 test-suite tests
     import: default
