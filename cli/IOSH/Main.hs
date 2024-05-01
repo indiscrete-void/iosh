@@ -32,7 +32,7 @@ serverMessageReceiver = handle go
     go (ServerTermination code) = output (ClientTermination code) >> exit code
 
 ttyOutputSender :: (Member ByteInputWithEOF r, Member (Sem.Output ClientMessage) r) => Sem r ()
-ttyOutputSender = transferStream Input ClientEOF
+ttyOutputSender = transferStream IOSH.Input ClientEOF
 
 init :: forall r. (Member TTY r, Member (Output Handshake) r, Member (Output ClientMessage) r) => Bool -> FilePath -> Args -> Maybe Environment -> Sem r () -> Sem r ()
 init pty path args maybeEnv m = do

@@ -28,7 +28,7 @@ import System.IO
 clientMessageReceiver :: (Member Fail r, Member Exit r, Member (InputWithEOF ClientMessage) r, Member ByteOutput r, Member Resize r, Member Close r) => Bool -> Sem r ()
 clientMessageReceiver pty = handle go
   where
-    go (Input str) = output str
+    go (IOSH.Input str) = output str
     go (IOSH.Resize size) = resize pty size
     go (ClientTermination code) = exit code
     go ClientEOF = close
