@@ -10,9 +10,7 @@ module IOSH.Protocol
     Args,
     Size,
     failTermination,
-    transferStream,
     StreamKind (..),
-    handle,
   )
 where
 
@@ -21,12 +19,8 @@ import Data.Int
 import Data.Kind
 import Data.Serialize
 import GHC.Generics
-import Pipes
-import Pipes.Prelude qualified as P
 import Polysemy
 import Polysemy.Fail
-import Polysemy.Output
-import Polysemy.Transport
 import System.Exit
 
 type StreamKind :: Type
@@ -65,12 +59,6 @@ data ServerMessage where
 
 failTermination :: (Member Fail r) => Sem r a
 failTermination = fail "session ended before termination procedure was done"
-
-transferStream :: (Member (InputWithEOF a) r, Member (Output msg) r, Member (Output eofMsg) r) => (a -> msg) -> eofMsg -> Sem r ()
-transferStream f eof = runEffect (inputter >-> P.map f >-> outputter) >> output eof
-
-handle :: (Member (InputWithEOF msg) r) => (msg -> Sem r ()) -> Sem r ()
-handle f = runEffect $ for inputter (lift . f)
 
 instance Serialize StreamKind
 

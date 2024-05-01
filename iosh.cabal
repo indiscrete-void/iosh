@@ -45,7 +45,6 @@ library common
     build-depends:
         bytestring,
         process,
-        pipes,
         cereal,
         async,
 
