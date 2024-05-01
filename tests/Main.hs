@@ -16,7 +16,7 @@ data TestMessage where
   EOF :: TestMessage
   deriving stock (Eq, Show, Generic)
 
-runTestIO :: [i] -> Sem (Input (Maybe i) : Output o : r) a -> Sem r [o]
+runTestIO :: [i] -> Sem (Input (Maybe i) ': Output o ': r) a -> Sem r [o]
 runTestIO inputList sem = fst <$> runOutputList (runInputList inputList sem)
 
 testTransferStream :: TestTree
