@@ -1,7 +1,6 @@
 import Control.Monad
 import Data.Either
 import Data.Maybe
-import IOSH.IO
 import IOSH.Protocol
 import IOSH.Protocol qualified as IOSH
 import Polysemy hiding (run)
@@ -14,10 +13,11 @@ import Polysemy.Fail
 import Polysemy.Internal hiding (run)
 import Polysemy.Output
 import Polysemy.Output qualified as Sem
-import Polysemy.PTY (PTY, PTYEffects, PTYParams (..), Resize, scopedPTYToIOFinal)
+import Polysemy.PTY (PTY, PTYEffects, PTYParams (..), scopedPTYToIOFinal)
 import Polysemy.PTY qualified as PTY
-import Polysemy.Process (ProcessEffects, scopedProcToIOFinal)
+import Polysemy.Process (ProcessEffects, StreamKind (..), scopedProcToIOFinal)
 import Polysemy.Process qualified as Proc
+import Polysemy.Resize hiding (resize)
 import Polysemy.Scoped
 import Polysemy.Serialize
 import Polysemy.Tagged
@@ -90,7 +90,7 @@ main = mapM_ disableBuffering [stdin, stdout] >> run
         . interpretRace
         . asyncToIOFinal
         . embedToFinal @IO
-        . scopedProcToIOFinal
+        . scopedProcToIOFinal bufferSize
         . scopedPTYToIOFinal
         . inputToIO bufferSize stdin
         . outputToIO stdout

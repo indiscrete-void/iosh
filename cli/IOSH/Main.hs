@@ -11,6 +11,7 @@ import Polysemy.Exit
 import Polysemy.Fail
 import Polysemy.Output
 import Polysemy.Output qualified as Sem
+import Polysemy.PTY hiding (exec)
 import Polysemy.Process
 import Polysemy.Serialize
 import Polysemy.TTY
@@ -69,7 +70,7 @@ main = execOptionsParser >>= run
       runFinal
         . ttyToIOFinal stdInput
         . asyncToIOFinal
-        . scopedProcToIOFinal
+        . scopedProcToIOFinal bufferSize
         . embedToFinal @IO
         . userToIO stdin stdout stderr
         . exitToIO

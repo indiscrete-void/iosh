@@ -1,40 +1,26 @@
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DerivingStrategies #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module IOSH.Protocol
   ( Handshake (..),
     ClientMessage (..),
     ServerMessage (..),
-    Environment,
-    Args,
-    Size,
     failTermination,
-    StreamKind (..),
+    bufferSize,
   )
 where
 
 import Data.ByteString
-import Data.Int
 import Data.Kind
 import Data.Serialize
 import GHC.Generics
 import Polysemy
 import Polysemy.Fail
+import Polysemy.PTY
+import Polysemy.Process
 import System.Exit
 
-type StreamKind :: Type
-data StreamKind = StandardStream | ErrorStream
-  deriving stock (Generic)
-
-type Environment :: Type
-type Environment = [(String, String)]
-
-type Args :: Type
-type Args = [String]
-
-type Size :: Type
-type Size = (Int16, Int16)
+bufferSize :: Int
+bufferSize = 8192
 
 type Handshake :: Type
 data Handshake where

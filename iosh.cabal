@@ -13,7 +13,7 @@ common default
         DataKinds FlexibleContexts GADTs LambdaCase PolyKinds RankNTypes
         ScopedTypeVariables TypeApplications TypeOperators TypeFamilies
         ImportQualifiedPost StandaloneKindSignatures AllowAmbiguousTypes
-        TemplateHaskell BlockArguments
+        TemplateHaskell BlockArguments DerivingStrategies DeriveGeneric
 
     ghc-options:
         -fdefer-typed-holes -Weverything -Wno-missing-safe-haskell-mode
@@ -28,18 +28,14 @@ common default
     build-depends:
         base ^>=4.17.2.1,
         polysemy,
-        polysemy-transport,
-        process,
+        polysemy-scoped-process,
 
 library common
     import: default
     exposed-modules:
-        Polysemy.Process
-        Polysemy.Wait
         Polysemy.Exit
         Polysemy.Async_
         IOSH.Protocol
-        IOSH.IO
 
     hs-source-dirs: common
     build-depends:
@@ -61,19 +57,18 @@ executable iosh
         unix,
         terminal-size,
         optparse-applicative,
+        process,
+        polysemy-transport,
 
 executable ioshd
     import: default
     main-is: IOSH/Main.hs
     hs-source-dirs: daemon
-    other-modules:
-        Polysemy.PTY
-        Polysemy.Resize
-
     build-depends:
         iosh:common,
         polysemy-conc,
-        posix-pty,
+        process,
+        polysemy-transport,
 
 test-suite tests
     import: default

@@ -12,9 +12,9 @@ where
 import Control.Exception
 import Control.Monad
 import Data.Int
-import IOSH.Protocol
 import Polysemy
 import Polysemy.Final
+import Polysemy.Resize
 import System.Console.Terminal.Size
 import System.Posix.ByteString
 import System.Posix.Signals.Exts

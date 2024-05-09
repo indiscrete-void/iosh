@@ -5,10 +5,11 @@ module Polysemy.User
   )
 where
 
-import IOSH.IO
 import IOSH.Protocol
 import Polysemy
 import Polysemy.Close
+import Polysemy.PTY
+import Polysemy.Process (StreamKind (..))
 import Polysemy.Tagged
 import Polysemy.Transport
 import System.Environment hiding (getEnv)
