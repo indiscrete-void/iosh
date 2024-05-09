@@ -29,6 +29,7 @@ common default
         base ^>=4.17.2.1,
         polysemy,
         polysemy-transport,
+        process,
 
 library common
     import: default
@@ -43,7 +44,6 @@ library common
     hs-source-dirs: common
     build-depends:
         bytestring,
-        process,
         cereal,
         async,
 
@@ -72,7 +72,6 @@ executable ioshd
     build-depends:
         iosh:common,
         polysemy-conc,
-        process,
         posix-pty,
 
 test-suite tests

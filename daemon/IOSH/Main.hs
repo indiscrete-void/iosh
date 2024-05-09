@@ -16,7 +16,7 @@ import Polysemy.Output
 import Polysemy.Output qualified as Sem
 import Polysemy.PTY (PTY, PTYEffects, PTYParams (..), Resize, scopedPTYToIOFinal)
 import Polysemy.PTY qualified as PTY
-import Polysemy.Process (ProcessEffects, ProcessParams (..), scopedProcToIOFinal)
+import Polysemy.Process (ProcessEffects, scopedProcToIOFinal)
 import Polysemy.Process qualified as Proc
 import Polysemy.Scoped
 import Polysemy.Serialize
@@ -24,6 +24,7 @@ import Polysemy.Tagged
 import Polysemy.Transport
 import Polysemy.Wait
 import System.IO
+import System.Process
 
 clientMessageReceiver :: (Member Fail r, Member Exit r, Member (InputWithEOF ClientMessage) r, Member ByteOutput r, Member Resize r, Member Close r) => Bool -> Sem r ()
 clientMessageReceiver pty = handle go
@@ -45,11 +46,11 @@ outputSender pty =
 proveNo :: forall e r a. (Member Fail r) => Sem (e ': r) a -> Sem r a
 proveNo = interpretH @e (const $ fail "unexpected effect in Sem")
 
-exec :: forall r a. (Member (Scoped PTYParams PTY) r, Member (Scoped ProcessParams Proc.Process) r, Member Fail r) => Handshake -> Sem (Append PTYEffects (Append ProcessEffects r)) a -> Sem r a
+exec :: forall r a. (Member (Scoped PTYParams PTY) r, Member (Scoped CreateProcess Proc.Process) r, Member Fail r) => Handshake -> Sem (Append PTYEffects (Append ProcessEffects r)) a -> Sem r a
 exec hshake m = case hshake of
   (Handshake False sessionEnv path args Nothing) -> go . proveNo @ByteInputWithEOF . proveNo @Resize $ m'
     where
-      go = Proc.exec (InternalProcess sessionEnv path args)
+      go = Proc.exec (proc path args) {env = sessionEnv, std_in = CreatePipe, std_out = CreatePipe, std_err = CreatePipe}
   (Handshake True sessionEnv path args maybeSize) -> go . proveNo @(Tagged 'ErrorStream ByteInputWithEOF) . proveNo @(Tagged 'StandardStream ByteInputWithEOF) $ m'
     where
       size = fromMaybe (80, 24) maybeSize
@@ -66,7 +67,7 @@ resize False _ = fail "cannot resize regular process"
 sendExitCode :: (Member Wait r, Member (Output ServerMessage) r) => Sem r ()
 sendExitCode = wait >>= output . ServerTermination
 
-ioshd :: (Member Fail r, Member Race r, Member Exit r, Member Async r, Member (Scoped PTYParams PTY) r, Member (Scoped ProcessParams Proc.Process) r, Member (InputWithEOF Handshake) r, Member (InputWithEOF ClientMessage) r, Member (Output ServerMessage) r) => Sem r ()
+ioshd :: (Member Fail r, Member Race r, Member Exit r, Member Async r, Member (Scoped PTYParams PTY) r, Member (Scoped CreateProcess Proc.Process) r, Member (InputWithEOF Handshake) r, Member (InputWithEOF ClientMessage) r, Member (Output ServerMessage) r) => Sem r ()
 ioshd = do
   hshake@(Handshake pty _ _ _ _) <- inputOrFail
   exec hshake do

@@ -19,6 +19,7 @@ import Polysemy.Transport
 import Polysemy.User
 import System.IO
 import System.Posix.IO
+import System.Process
 import Transport.Maybe
 import Prelude hiding (init)
 
@@ -73,6 +74,6 @@ main = execOptionsParser >>= run
         . userToIO stdin stdout stderr
         . exitToIO
         . failToEmbed @IO
-        . exec (TunnelProcess tunProcCmd)
+        . exec (shell tunProcCmd) {std_in = CreatePipe, std_out = CreatePipe}
         . runUnserialized
         $ iosh pty inheritEnv path args
