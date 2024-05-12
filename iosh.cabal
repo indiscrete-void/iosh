@@ -33,8 +33,6 @@ common default
 library common
     import: default
     exposed-modules:
-        Polysemy.Exit
-        Polysemy.Async_
         IOSH.Protocol
 
     hs-source-dirs: common
