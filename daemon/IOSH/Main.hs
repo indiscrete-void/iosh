@@ -77,7 +77,7 @@ ioshd = do
   failTermination
 
 main :: IO ()
-main = mapM_ disableBuffering [stdin, stdout] >> run
+main = run ioshd
   where
     runUnserialized =
       runDecoder
@@ -97,4 +97,4 @@ main = mapM_ disableBuffering [stdin, stdout] >> run
         . exitToIO
         . failToEmbed @IO
         . runUnserialized
-        $ ioshd
+
