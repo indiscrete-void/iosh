@@ -5,10 +5,11 @@ import IOSH.Protocol
 import IOSH.Protocol qualified as IOSH
 import Polysemy hiding (run)
 import Polysemy.Async
-import Polysemy.Async_
 import Polysemy.Close
 import Polysemy.Conc hiding (Scoped)
 import Polysemy.Exit
+import Polysemy.Extra.Async
+import Polysemy.Extra.Trace
 import Polysemy.Fail
 import Polysemy.Internal hiding (run)
 import Polysemy.Output
@@ -21,12 +22,13 @@ import Polysemy.Resize hiding (resize)
 import Polysemy.Scoped
 import Polysemy.Serialize
 import Polysemy.Tagged
+import Polysemy.Trace
 import Polysemy.Transport
 import Polysemy.Wait
 import System.IO
 import System.Process
 
-clientMessageReceiver :: (Member Fail r, Member Exit r, Member (InputWithEOF ClientMessage) r, Member ByteOutput r, Member Resize r, Member Close r) => Bool -> Sem r ()
+clientMessageReceiver :: (Member Fail r, Member Exit r, Member (InputWithEOF ClientMessage) r, Member ByteOutput r, Member Resize r, Member Close r, Member Trace r) => Bool -> Sem r ()
 clientMessageReceiver pty = handle go
   where
     go (IOSH.Input str) = output str
@@ -67,7 +69,7 @@ resize False _ = fail "cannot resize regular process"
 sendExitCode :: (Member Wait r, Member (Output ServerMessage) r) => Sem r ()
 sendExitCode = wait >>= output . ServerTermination
 
-ioshd :: (Member Fail r, Member Race r, Member Exit r, Member Async r, Member (Scoped PTYParams PTY) r, Member (Scoped CreateProcess Proc.Process) r, Member (InputWithEOF Handshake) r, Member (InputWithEOF ClientMessage) r, Member (Output ServerMessage) r) => Sem r ()
+ioshd :: (Member Fail r, Member Race r, Member Exit r, Member Async r, Member (Scoped PTYParams PTY) r, Member (Scoped CreateProcess Proc.Process) r, Member (InputWithEOF Handshake) r, Member (InputWithEOF ClientMessage) r, Member (Output ServerMessage) r, Member Trace r) => Sem r ()
 ioshd = do
   hshake@(Handshake pty _ _ _ _) <- inputOrFail
   exec hshake do
@@ -90,6 +92,7 @@ main = run ioshd
         . interpretRace
         . asyncToIOFinal
         . embedToFinal @IO
+        . traceToStderrBuffered
         . scopedProcToIOFinal bufferSize
         . scopedPTYToIOFinal
         . inputToIO bufferSize stdin
@@ -97,4 +100,3 @@ main = run ioshd
         . exitToIO
         . failToEmbed @IO
         . runUnserialized
-

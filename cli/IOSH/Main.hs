@@ -5,9 +5,10 @@ import IOSH.Protocol
 import IOSH.Protocol qualified as IOSH
 import Polysemy hiding (run)
 import Polysemy.Async
-import Polysemy.Async_
 import Polysemy.Close
 import Polysemy.Exit
+import Polysemy.Extra.Async
+import Polysemy.Extra.Trace
 import Polysemy.Fail
 import Polysemy.Output
 import Polysemy.Output qualified as Sem
@@ -16,6 +17,7 @@ import Polysemy.Process
 import Polysemy.Serialize
 import Polysemy.TTY
 import Polysemy.Tagged
+import Polysemy.Trace
 import Polysemy.Transport
 import Polysemy.User
 import System.IO
@@ -24,7 +26,7 @@ import System.Process
 import Transport.Maybe
 import Prelude hiding (init)
 
-serverMessageReceiver :: (Member Exit r, Member (Tagged 'StandardStream ByteOutput) r, Member (Tagged 'ErrorStream ByteOutput) r, Member (InputWithEOF ServerMessage) r, Member (Output ClientMessage) r, Member (Tagged 'StandardStream Close) r, Member (Tagged 'ErrorStream Close) r) => Sem r ()
+serverMessageReceiver :: (Member Exit r, Member (Tagged 'StandardStream ByteOutput) r, Member (Tagged 'ErrorStream ByteOutput) r, Member (InputWithEOF ServerMessage) r, Member (Output ClientMessage) r, Member (Tagged 'StandardStream Close) r, Member (Tagged 'ErrorStream Close) r, Member Trace r) => Sem r ()
 serverMessageReceiver = handle go
   where
     go (IOSH.Output str) = tag @'StandardStream @ByteOutput (output str)
@@ -47,7 +49,7 @@ init pty path args maybeEnv m = do
   where
     m' = raise_ m
 
-iosh :: (Member Async r, Members User r, Member Fail r, Member Exit r, Member TTY r, Member (Output Handshake) r, Member (InputWithEOF ServerMessage) r, Member (Output ClientMessage) r) => Bool -> Bool -> String -> [String] -> Sem r ()
+iosh :: (Member Async r, Members User r, Member Fail r, Member Exit r, Member TTY r, Member (Output Handshake) r, Member (InputWithEOF ServerMessage) r, Member (Output ClientMessage) r, Member Trace r) => Bool -> Bool -> String -> [String] -> Sem r ()
 iosh pty inheritEnv path args = do
   maybeEnv <- whenMaybe inheritEnv (Just <$> getEnv)
   init pty path args maybeEnv do
@@ -68,10 +70,11 @@ main = execOptionsParser >>= run
         . raise3Under @ByteInputWithEOF
     run (Options pty inheritEnv tunProcCmd path args) =
       runFinal
+        . embedToFinal @IO
         . ttyToIOFinal stdInput
         . asyncToIOFinal
+        . traceToStderrBuffered
         . scopedProcToIOFinal bufferSize
-        . embedToFinal @IO
         . userToIO stdin stdout stderr
         . exitToIO
         . failToEmbed @IO
